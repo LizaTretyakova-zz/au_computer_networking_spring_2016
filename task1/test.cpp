@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cassert>
 #include <cstdint>
 #include <cstddef>
 #include <memory>
@@ -11,6 +12,9 @@
 
 #define TEST_TCP_STREAM_SOCKET
 #define TEST_AU_STREAM_SOCKET
+
+using std::cerr;
+using std::cout;
 
 const char *TEST_ADDR = "localhost";
 const tcp_port TCP_TEST_PORT = "40002";
@@ -32,10 +36,16 @@ static void* test_stream_sockets_datapipe_thread_func(void*)
 
     client->connect();
     while (i < max_i) {
+        cerr << "client: " << client.get() << "\n";
         client->recv(buf, sizeof(buf));
+        cerr << "[test_stream_sockets_datapipe_thread_func]: client received some data\n";
         for (size_t buf_ix = 0; buf_ix < BUF_ITEMS; ++buf_ix, ++i) {
+//            cerr << "[test_stream_sockets_datapipe_thread_func]: buf_ix=" << buf_ix
+//                 << " BUF_ITEMS=" << BUF_ITEMS
+//                 << " i=" << i
+//                 << " max_i=" << max_i << "\n";
             if (buf[buf_ix] != i)
-                std::cout << i << " " << buf[buf_ix] << std::endl;
+                cout << i << " " << buf[buf_ix] << std::endl;
             assert(buf[buf_ix] == i);
         }
     }
@@ -59,6 +69,7 @@ static void test_stream_sockets_datapipe()
             buf[buf_ix] = i;
         server_client->send(buf, sizeof(buf));
     }
+    pthread_join(th, NULL);
 }
 
 static void* test_stream_sockets_partial_data_sent_thread_func(void *)
@@ -83,6 +94,7 @@ static void test_stream_sockets_partial_data_sent()
     pthread_t th;
     pthread_create(&th, NULL, test_stream_sockets_partial_data_sent_thread_func, NULL);
 
+    server_client.reset(server->accept_one_client());
     bool thrown = false;
     try {
         server_client->recv(buf, 4);
@@ -92,6 +104,7 @@ static void test_stream_sockets_partial_data_sent()
         thrown = true;
     }
     assert(thrown);
+    pthread_join(th, NULL);
 }
 
 static void test_tcp_stream_sockets()
@@ -99,8 +112,8 @@ static void test_tcp_stream_sockets()
 #ifdef TEST_TCP_STREAM_SOCKET
     server.reset(new tcp_server_socket(TEST_ADDR, TCP_TEST_PORT));
     client.reset(new tcp_client_socket(TEST_ADDR, TCP_TEST_PORT));
-
     test_stream_sockets_datapipe();
+    client.reset(new tcp_client_socket(TEST_ADDR, TCP_TEST_PORT));
     test_stream_sockets_partial_data_sent();
 #endif
 }
