@@ -31,7 +31,7 @@ struct stream_socket
     virtual ~stream_socket() {};
 };
 
-struct stream_client_socket: stream_socket
+struct stream_client_socket: virtual stream_socket
 {
     /*
      * If exception is thrown then this socket would probably
