@@ -2,74 +2,100 @@
 #include "serialization.h"
 #include "tcp_socket.h"
 
+#include <boost/filesystem.hpp>
+#include <boost/range/iterator_range.hpp>
 #include <iostream>
 #include <fstream>
 #include <pthread.h>
 #include <sstream>
 #include <string>
 #include <stdexcept>
-#include <boost/filesystem.hpp>
-#include <boost/range/iterator_range.hpp>
-
+#include <vector>
 
 using std::cin;
 using std::cout;
 using std::cerr;
+using std::ifstream;
+using std::ofstream;
 using std::string;
+using std::stringstream;
+using std::vector;
 using namespace boost::filesystem;
 
 
 static void* process_client(void* arg) {
-    tcp_client_socket* client = (tcp_client_socket*)arg;
+    tcp_socket* client = (tcp_socket*)arg;
     request req;
     response res;
-
     recv_request(client, &req);
-    switch(req.cmd) {
-    case cd:
+
+    cmd_code cmd = (cmd_code)req.cmd;
+
+    switch(cmd) {
+    case CD: {
+        cerr << "[server]: cd " << string(req.target_path) << "\n";
         current_path(path(req.target_path));
-        res.status = ok;
+        res.status_ok = true;
         break;
-    case ls:
+    }
+    case LS: {
         path p(req.target_path);
+        cerr << "[server]: ls " << string(req.target_path) << "\n";
         if(is_directory(p)) {
-            cout << p << " is a directory containing:\n";
+            cerr << p << " is a directory containing:\n";
 
             for(auto& entry : boost::make_iterator_range(directory_iterator(p), {})) {
-                cout << entry << "\n";
+                cerr << entry << "\n";
             }
         }
-        res.status = ok;
+        res.status_ok = true;
         break;
-    case get:
+    }
+    case GET: {
+        cerr << "[server]: get " << string(req.target_path) << "\n";
+
         ifstream in(req.target_path);
         stringstream sstr;
 
         sstr << in.rdbuf();
-        res.data = sstr.str().c_str();
-        res.data_size = strlen(contents);
-        res.status = ok;
+        string str = sstr.str();
+        vector<char> data_v(str.c_str(), str.c_str() + str.size() + 1);
+        res.data = &data_v[0];
+        res.data_size = data_v.size();
+        res.status_ok = true;
 
-        break;
-    case put:
-        ofsteam out(req.target_path);
-        out << string(req.data, res.data_size);
-
-        res.status = ok;
-        break;
-    case del:
-        remove(path(req.target_path));
-        res.status = ok;
         break;
     }
+    case PUT: {
+        cerr << "[server]: put " << string(req.target_path) << "\n";
 
-    send_response(client, res);
-    return;
+        ofstream out(req.target_path);
+        out << string(req.data, res.data_size);
+
+        res.status_ok = true;
+        break;
+    }
+    case DEL: {
+        cerr << "[server]: del " << string(req.target_path) << "\n";
+
+        remove(path(req.target_path));
+        res.status_ok = true;
+        break;
+    }
+    default: {
+        cerr << "[server]: client's request didn't match any command\n";
+        break;
+    }
+    }
+
+    send_response(client, &res);
+    free(req.data);
+    return NULL;
 }
 
 
 int main(int argc, char* argv[]) {
-	if (argc != 2 && argc != 0) {
+    if (argc != 2 + 1 && argc != 0 + 1) {
         cerr << "RemoteFS client usage: <utility> <hostname> <port>\n";
         cerr << "Commands:<number> <argument>\n";
         cerr << "Command numbers:\n";
@@ -93,7 +119,7 @@ int main(int argc, char* argv[]) {
 	while(true) {
         try {
             pthread_t th;
-            tcp_socket* client = sock.accept_one_client();
+            tcp_socket* client = reinterpret_cast<tcp_socket*>(sock.accept_one_client());
             cout << "[server] client connected\n";
             pthread_create(&th, NULL, process_client, client);
         } catch(std::runtime_error e) {
