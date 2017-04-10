@@ -1,33 +1,32 @@
 #pragma once
 
-enum cmd_code: uint8_t {
-	cd = 0,
-	ls = 1,
-	get = 2,
-	put = 3,
-	del = 4
-};
+#include <cstdint>
+#include <cstdio>
+#include <type_traits>
 
-enum status_code: uint8_t {
-	ok = 1,
-	fail = 0
+enum cmd_code: uint8_t {
+    CD = 0,
+    LS = 1,
+    GET = 2,
+    PUT = 3,
+    DEL = 4
 };
 
 struct request {
-	cmd_code cmd;
-	char* target_path;
+    uint8_t cmd;
+    char* target_path;
 	char* data;
 	uint32_t data_size;
 
-	request(cmd_code c, char* tp, char* d, uint32_t ds):
+    request(uint8_t c = 0, char* tp = NULL, char* d = NULL, uint32_t ds = 0):
 		cmd(c), target_path(tp), data(d), data_size(ds) {}
 };
 
 struct response {
-	status_code status;
-	char* data;
+    bool status_ok;
+    char* data;
 	uint32_t data_size;
 
-	response(status_code s = fail, char* d = NULL, uint32_t ds = 0):
-		status(s), data(d), data_size(ds) {}
+    response(bool ok = false, char* d = NULL, uint32_t ds = 0):
+        status_ok(ok), data(d), data_size(ds) {}
 };

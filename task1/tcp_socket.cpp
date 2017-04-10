@@ -23,13 +23,11 @@ void check_socket_set(int sockfd) {
 stream_socket* tcp_server_socket::accept_one_client() {
     check_socket_set(sockfd);
 
-    cerr << "[TCP Server] sockfd: " << sockfd << "\n";
     int new_fd = accept(sockfd, NULL, NULL);
     if (new_fd == -1) {
         perror("TCP Server: error on accept");
         throw std::runtime_error("TCP Server: error on accept");
     }
-    cerr << "[TCP Server]: new_fd=" << new_fd << "\n";
     return new tcp_socket(new_fd);
 }
 
@@ -89,9 +87,7 @@ void tcp_socket::recv(void *buf, size_t size) {
 
     ssize_t numbytes = 0;
     while (size > 0/* && (size_t)(numbytes = ::recv(sockfd, buf, size, 0)) < size*/) {
-        cerr << "[TCP Socket]: size=" << size << "\n";
         numbytes = ::recv(sockfd, buf, size, 0);
-        cerr << "[TCP Socket]: numbytes=" << numbytes << "\n";
         if (numbytes == -1) {
             perror("TCP Socket: error while receiving");
             throw std::runtime_error("TCP Socket: error while receiving");

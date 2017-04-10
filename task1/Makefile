@@ -18,9 +18,9 @@ client: $(SRCS_client:$(SRCDIR)/%.cpp=$(BINDIR)/%.o)
 server: $(SRCS_server:$(SRCDIR)/%.cpp=$(BINDIR)/%.o)
 
 CXX=g++
-CXXFLAGS=-pthread -pedantic -ggdb -Wno-unused-parameter -Wno-unused-variable -Wno-unused-but-set-variable -Wall -Wshadow -Wextra -Werror -std=c++11 -I$(INCDIR)
+CXXFLAGS=-pthread -pedantic -std=c++11 -ggdb -Wall -Wshadow -Wextra -Werror -std=c++11 -I$(INCDIR)
 LDFLAGS=-pthread -ggdb 
-LDLIBS=
+LDLIBS= -lboost_system -lboost_filesystem
 ifeq ($(OS),Windows_NT)
   CXXFLAGS+=-DWINVER=WindowsXP
   LDLIBS+=-lws2_32
