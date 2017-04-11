@@ -27,68 +27,84 @@ static void* process_client(void* arg) {
     tcp_socket* client = (tcp_socket*)arg;
     request req;
     response res;
-    recv_request(client, &req);
-
+    try {
+        recv_request(client, &req);
+    } catch(...) {
+        return NULL;
+    }
     cmd_code cmd = (cmd_code)req.cmd;
 
-    switch(cmd) {
-    case CD: {
-        cerr << "[server]: cd " << string(req.target_path) << "\n";
-        current_path(path(req.target_path));
-        res.status_ok = true;
-        break;
-    }
-    case LS: {
-        path p(req.target_path);
-        cerr << "[server]: ls " << string(req.target_path) << "\n";
-        if(is_directory(p)) {
-            cerr << p << " is a directory containing:\n";
-
-            for(auto& entry : boost::make_iterator_range(directory_iterator(p), {})) {
-                cerr << entry << "\n";
-            }
+    try {
+        switch(cmd) {
+        case CD: {
+            cerr << "[server]: cd " << string(req.target_path) << "\n";
+            current_path(path(req.target_path));
+            res.status_ok = true;
+            break;
         }
-        res.status_ok = true;
-        break;
+        case LS: {
+            path p(req.target_path);
+            cerr << "[server]: ls " << string(req.target_path) << "\n";
+            if(is_directory(p)) {
+                cerr << p << " is a directory containing:\n";
+
+                for(auto& entry : boost::make_iterator_range(directory_iterator(p), {})) {
+                    cerr << entry << "\n";
+                }
+            }
+            res.status_ok = true;
+            break;
+        }
+        case GET: {
+            // I allow only text files here
+            cerr << "[server]: get " << string(req.target_path) << "\n";
+
+            ifstream in(req.target_path);
+            stringstream sstr;
+
+            sstr << in.rdbuf();
+            string str = sstr.str();
+            vector<char> data_v(str.c_str(), str.c_str() + str.size() + 1);
+            res.data = &data_v[0];
+            res.data_size = data_v.size();
+            res.status_ok = true;
+
+            break;
+        }
+        case PUT: {
+            cerr << "[server]: put " << string(req.target_path) << "\n";
+
+            ofstream out(req.target_path);
+            cerr << "req.data_size: " << req.data_size << " req.data: " << string(req.data, res.data_size) << "\n";
+            out << string(req.data, res.data_size);
+
+            res.status_ok = true;
+            break;
+        }
+        case DEL: {
+            cerr << "[server]: del " << string(req.target_path) << "\n";
+
+            remove(path(req.target_path));
+            res.status_ok = true;
+            break;
+        }
+        default: {
+            cerr << "[server]: client's request didn't match any command\n";
+            break;
+        }
+        }
+    } catch(std::runtime_error e) {
+        // we shouldn't drop server if the error is actually client's fault
+        cerr << "[server]: thrown runtime error: " << e.what() << "\n";
+        res.status_ok = false;
+    } catch(...) {
+        // okay, something really bad happened -- not trying to save client
+        free(req.target_path);
+        free(req.data);
+        return NULL;
     }
-    case GET: {
-        cerr << "[server]: get " << string(req.target_path) << "\n";
-
-        ifstream in(req.target_path);
-        stringstream sstr;
-
-        sstr << in.rdbuf();
-        string str = sstr.str();
-        vector<char> data_v(str.c_str(), str.c_str() + str.size() + 1);
-        res.data = &data_v[0];
-        res.data_size = data_v.size();
-        res.status_ok = true;
-
-        break;
-    }
-    case PUT: {
-        cerr << "[server]: put " << string(req.target_path) << "\n";
-
-        ofstream out(req.target_path);
-        out << string(req.data, res.data_size);
-
-        res.status_ok = true;
-        break;
-    }
-    case DEL: {
-        cerr << "[server]: del " << string(req.target_path) << "\n";
-
-        remove(path(req.target_path));
-        res.status_ok = true;
-        break;
-    }
-    default: {
-        cerr << "[server]: client's request didn't match any command\n";
-        break;
-    }
-    }
-
     send_response(client, &res);
+    free(req.target_path);
     free(req.data);
     return NULL;
 }

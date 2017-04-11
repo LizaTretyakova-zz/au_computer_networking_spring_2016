@@ -14,6 +14,8 @@ using std::string;
 using std::vector;
 
 void make_request(tcp_client_socket* socket, uint8_t cmd, string argument, char* data = NULL, uint32_t data_size = 0) {
+    cerr << "[client]: put_data=" << string(data, data_size) << "\n";
+
     vector<char> arg_v(argument.c_str(), argument.c_str() + argument.size() + 1);
     request req(cmd, &arg_v[0], data, data_size);
     response res;
@@ -21,7 +23,7 @@ void make_request(tcp_client_socket* socket, uint8_t cmd, string argument, char*
 	send_request(socket, &req);
 	recv_response(socket, &res);
 	
-    cout << "RemoteFS client command status: " << res.status_ok << "\n";
+    cout << "[client]: command status: " << res.status_ok << "\n";
     if(cmd == static_cast<uint8_t>(GET)) {
         cout << "Got file contents:\n" << string(res.data, res.data_size) << "\n";
 	}
@@ -62,29 +64,31 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-    uint8_t cmd;
-	while(cin >> cmd) {
-		string argument;
-		string cont_arg;
+    int cmd;
+    cin >> cmd;
 
-		cin >> argument;
+    string argument;
+    string cont_arg;
+    cin >> argument;
+
+    cerr << "[client]: got command " << cmd << " and argument " << argument << "\n";
+    if(cmd == static_cast<uint8_t>(PUT)) {
+        cin >> cont_arg;
+        cerr << "... and for PUT command " << cont_arg << "\n";
+    }
+
+    try {
         if(cmd == static_cast<uint8_t>(PUT)) {
-			cin >> cont_arg;
-		}
-
-		try {
-            if(cmd == static_cast<uint8_t>(PUT)) {
-                vector<char> cont_arg_v(cont_arg.c_str(), cont_arg.c_str() + cont_arg.size() + 1);
-                make_request(&sock, cmd, argument, &cont_arg_v[0], cont_arg.size());
-			} else {
-                make_request(&sock, cmd, argument);
-			}
-        } catch(std::runtime_error e) {
-            cerr << "Error interacting with server: \n" << e.what() << "\n";
-            exit(1);
-        } catch(...) {
-            cerr << "Error interacting with server\n";
-            exit(1);
+            vector<char> cont_arg_v(cont_arg.c_str(), cont_arg.c_str() + cont_arg.size() + 1);
+            make_request(&sock, (uint8_t)cmd, argument, &cont_arg_v[0], cont_arg.size());
+        } else {
+            make_request(&sock, (uint8_t)cmd, argument);
         }
-	}
+    } catch(std::runtime_error e) {
+        cerr << "Error interacting with server: \n" << e.what() << "\n";
+        exit(1);
+    } catch(...) {
+        cerr << "Error interacting with server\n";
+        exit(1);
+    }
 }
