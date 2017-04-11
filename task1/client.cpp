@@ -15,24 +15,18 @@ using std::vector;
 
 // void make_request(tcp_client_socket* socket, uint8_t cmd, string argument, char* data = NULL, uint32_t data_size = 0) {
 void make_request(tcp_client_socket* socket, uint8_t cmd, string argument, string data = "") {
-//    cerr << "[client]: put_data=" << string(data, data_size) << "\n";
     cerr << "[client]: request " << argument << " " << data << "\n";
 
-//    vector<char> arg_v(argument.c_str(), argument.c_str() + argument.size() + 1);
-//    request req(cmd, &arg_v[0], data, data_size);
     request req(cmd, argument, data);
     response res;
 	
 	send_request(socket, &req);
 	recv_response(socket, &res);
 	
-    cout << "[client]: command status: " << res.status_ok << "\n";
+    cerr << "[client]: command status: " << res.status_ok << "\n";
     if(cmd == static_cast<uint8_t>(GET)) {
-//        cout << "Got file contents:\n" << string(res.data, res.data_size) << "\n";
-        cout << "[client]: got file contents\n" << res.data << "\n";
+        cerr << "[client]: got file contents\n" << res.data << "\n";
     }
-
-//    free(res.data);
 }
 
 
@@ -83,8 +77,6 @@ int main(int argc, char* argv[]) {
 
     try {
         if(cmd == static_cast<uint8_t>(PUT)) {
-//            vector<char> cont_arg_v(cont_arg.c_str(), cont_arg.c_str() + cont_arg.size() + 1);
-//            make_request(&sock, (uint8_t)cmd, argument, &cont_arg_v[0], cont_arg.size());
             make_request(&sock, (uint8_t)cmd, argument, cont_arg);
         } else {
             make_request(&sock, (uint8_t)cmd, argument);
