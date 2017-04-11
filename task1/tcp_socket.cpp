@@ -86,7 +86,7 @@ void tcp_socket::recv(void *buf, size_t size) {
     check_socket_set(sockfd);
 
     ssize_t numbytes = 0;
-    while (size > 0/* && (size_t)(numbytes = ::recv(sockfd, buf, size, 0)) < size*/) {
+    while (size > 0) {
         numbytes = ::recv(sockfd, buf, size, 0);
         if (numbytes == -1) {
             perror("TCP Socket: error while receiving");

@@ -21,8 +21,8 @@ void send_response(tcp_socket* socket, response* res) {
 	uint32_t size = htonl(res->data_size);
 
     socket->send(&res->status_ok, sizeof(bool));
-	socket->send(&size, sizeof(uint32_t));
-	socket->recv(res->data, res->data_size);
+    socket->send(&size, sizeof(uint32_t));
+    socket->send(res->data, res->data_size);
 }
 
 void recv_request(tcp_socket* socket, request* req) {
