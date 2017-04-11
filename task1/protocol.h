@@ -2,7 +2,10 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <string>
 #include <type_traits>
+
+using std::string;
 
 enum cmd_code: uint8_t {
     CD = 0,
@@ -30,6 +33,6 @@ struct response {
 //  char* data;
 //	uint32_t data_size;
 
-    response(bool ok = false, char* d = ""): // = NULL, uint32_t ds = 0):
+    response(bool ok = false, string d = ""): // char* d = NULL, uint32_t ds = 0):
         status_ok(ok), data(d) {} // , data_size(ds) {}
 };
