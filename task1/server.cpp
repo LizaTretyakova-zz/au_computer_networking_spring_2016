@@ -37,7 +37,6 @@ static void* process_client(void* arg) {
     try {
         switch(cmd) {
         case CD: {
-//            cerr << "[server]: cd " << string(req.target_path) << "\n";
             cerr << "[server]: cd " << req.target_path << "\n";
             current_path(path(req.target_path));
             res.status_ok = true;
@@ -45,7 +44,6 @@ static void* process_client(void* arg) {
         }
         case LS: {
             path p(req.target_path);
-//            cerr << "[server]: ls " << string(req.target_path) << "\n";
             cerr << "[server]: ls " << req.target_path << "\n";
             if(is_directory(p)) {
                 cerr << p << " is a directory containing:\n";
@@ -59,36 +57,27 @@ static void* process_client(void* arg) {
         }
         case GET: {
             // I allow only text files here
-//            cerr << "[server]: get " << string(req.target_path) << "\n";
             cerr << "[server]: get " << req.target_path << "\n";
 
             ifstream in(req.target_path);
             stringstream sstr;
 
             sstr << in.rdbuf();
-//            string str = sstr.str();
-//            vector<char> data_v(str.c_str(), str.c_str() + str.size() + 1);
-//            res.data = &data_v[0];
-//            res.data_size = data_v.size();
             res.data = sstr.str();
             res.status_ok = true;
 
             break;
         }
         case PUT: {
-//            cerr << "[server]: put " << string(req.target_path) << "\n";
             cerr << "[server]: put " << req.target_path << " " << req.data << "\n";
 
             ofstream out(req.target_path);
-//            cerr << "req.data_size: " << req.data_size << " req.data: " << string(req.data, res.data_size) << "\n";
-//            out << string(req.data, res.data_size);
             out << req.data;
 
             res.status_ok = true;
             break;
         }
         case DEL: {
-//            cerr << "[server]: del " << string(req.target_path) << "\n";
             cerr << "[server]: del " << req.target_path << "\n";
 
             remove(path(req.target_path));
@@ -106,13 +95,9 @@ static void* process_client(void* arg) {
         res.status_ok = false;
     } catch(...) {
         // okay, something really bad happened -- not trying to save client
-//        free(req.target_path);
-//        free(req.data);
         return NULL;
     }
     send_response(client, &res);
-//    free(req.target_path);
-//    free(req.data);
     return NULL;
 }
 
