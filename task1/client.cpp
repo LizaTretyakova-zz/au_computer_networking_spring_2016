@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
 	tcp_client_socket sock(addr, port);
 	try {
 		sock.connect();
-        cout << "[client] connected\n";
+        cout << "[client] connected" << std::endl;
     } catch(std::runtime_error e) {
         cerr << "Error connecting to server:\n" << e.what() << "\n";
 		exit(1);
