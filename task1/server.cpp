@@ -15,6 +15,7 @@
 using std::cin;
 using std::cout;
 using std::cerr;
+using std::endl;
 using std::ifstream;
 using std::ofstream;
 using std::string;
@@ -30,6 +31,8 @@ static void* process_client(void* arg) {
     try {
         recv_request(client, &req);
     } catch(...) {
+        delete client;
+        cerr << "[server] error receiving client's request\n";
         return NULL;
     }
     cmd_code cmd = (cmd_code)req.cmd;
@@ -98,6 +101,9 @@ static void* process_client(void* arg) {
         return NULL;
     }
     send_response(client, &res);
+
+    delete client;
+    cout << "[server] finished with client" << endl;
     return NULL;
 }
 
@@ -128,7 +134,7 @@ int main(int argc, char* argv[]) {
         try {
             pthread_t th;
             tcp_socket* client = reinterpret_cast<tcp_socket*>(sock.accept_one_client());
-            cout << "[server] client connected\n";
+            cout << "[server] client connected" << endl;
             pthread_create(&th, NULL, process_client, client);
         } catch(std::runtime_error e) {
             cerr << "Error accepting client: \n" << e.what() << "\n";
