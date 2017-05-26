@@ -11,9 +11,9 @@ void send_request(tcp_socket* socket, request* req) {
     uint32_t data_size_n = htonl(req->data.size());
 
     socket->send(&req->cmd, sizeof(uint8_t)); // no need for htons -- value too short
-	socket->send(&len_n, sizeof(uint32_t));
+    socket->send(&len_n, sizeof(uint32_t));
     socket->send(req->target_path.c_str(), len);
-	socket->send(&data_size_n, sizeof(uint32_t));
+    socket->send(&data_size_n, sizeof(uint32_t));
     socket->send(req->data.c_str(), req->data.size());
 }
 
@@ -29,8 +29,8 @@ void recv_request(tcp_socket* socket, request* req) {
 	uint32_t len;
 
     socket->recv(&req->cmd, sizeof(uint8_t));
-	socket->recv(&len, sizeof(uint32_t));
-	len = ntohl(len);
+    socket->recv(&len, sizeof(uint32_t));
+    len = ntohl(len);
     req->target_path.resize(len);
     socket->recv(&(req->target_path)[0], len);
     socket->recv(&len, sizeof(uint32_t));

@@ -20,12 +20,13 @@ void make_request(tcp_client_socket* socket, uint8_t cmd, string argument, strin
     request req(cmd, argument, data);
     response res;
 	
-	send_request(socket, &req);
-	recv_response(socket, &res);
+    send_request(socket, &req);
+    recv_response(socket, &res);
 	
     cerr << "[client]: command status: " << res.status_ok << "\n";
-    if(cmd == static_cast<uint8_t>(GET)) {
-        cerr << "[client]: got file contents\n" << res.data << "\n";
+    if(cmd == static_cast<uint8_t>(GET)
+            || cmd == static_cast<uint8_t>(LS)) {
+        cerr << "[client]: got data\n" << res.data << "\n";
     }
 }
 

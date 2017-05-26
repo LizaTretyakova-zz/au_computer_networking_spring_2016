@@ -18,6 +18,7 @@ using std::cerr;
 using std::endl;
 using std::ifstream;
 using std::ofstream;
+using std::ostringstream;
 using std::string;
 using std::stringstream;
 using std::vector;
@@ -48,14 +49,16 @@ static void* process_client(void* arg) {
         case LS: {
             path p(req.target_path);
             cerr << "[server]: ls " << req.target_path << "\n";
+            ostringstream output;
             if(is_directory(p)) {
-                cerr << p << " is a directory containing:\n";
+                output << p << " is a directory containing:" << endl;
 
                 for(auto& entry : boost::make_iterator_range(directory_iterator(p), {})) {
-                    cerr << entry << "\n";
+                    output << entry << endl;
                 }
             }
             res.status_ok = true;
+            res.data = output.str();
             break;
         }
         case GET: {
@@ -92,7 +95,7 @@ static void* process_client(void* arg) {
             break;
         }
         }
-    } catch(std::runtime_error e) {
+    } catch(std::runtime_error& e) {
         // we shouldn't drop server if the error is actually client's fault
         cerr << "[server]: thrown runtime error: " << e.what() << "\n";
         res.status_ok = false;
@@ -135,8 +138,13 @@ int main(int argc, char* argv[]) {
             pthread_t th;
             tcp_socket* client = reinterpret_cast<tcp_socket*>(sock.accept_one_client());
             cout << "[server] client connected" << endl;
-            pthread_create(&th, NULL, process_client, client);
-        } catch(std::runtime_error e) {
+            int res = pthread_create(&th, NULL, process_client, client);
+            if (res < 0) {
+                perror("[server]");
+                exit(1);
+            }
+            pthread_detach(th);
+        } catch(std::runtime_error& e) {
             cerr << "Error accepting client: \n" << e.what() << "\n";
             exit(1);
         } catch(...) {
