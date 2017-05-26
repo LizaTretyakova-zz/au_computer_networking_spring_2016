@@ -22,13 +22,28 @@ void check_socket_set(int sockfd) {
 
 stream_socket* tcp_server_socket::accept_one_client() {
     check_socket_set(sockfd);
-
-    int new_fd = accept(sockfd, NULL, NULL);
-    if (new_fd == -1) {
-        perror("TCP Server: error on accept");
-        throw std::runtime_error("TCP Server: error on accept");
+    
+    int new_fd;
+    while(true) {
+        new_fd = accept(sockfd, NULL, NULL);
+        if (new_fd < 0) {
+            perror("TCP Server: error on accept");
+            switch(errno) {
+            case ENETDOWN:
+            case EPROTO:
+            case ENOPROTOOPT:
+            case EHOSTDOWN:
+            case ENONET:
+            case EHOSTUNREACH:
+            case EOPNOTSUPP:
+            case ENETUNREACH:
+                continue;
+            default:
+                throw std::runtime_error("TCP Server: error on accept");
+            }
+        }
+        return new tcp_socket(new_fd);
     }
-    return new tcp_socket(new_fd);
 }
 
 void tcp_client_socket::connect() {
@@ -72,7 +87,7 @@ void tcp_socket::send(const void *buf, size_t size) {
 
     ssize_t sent = 0;
     while(size > 0) {
-        sent = ::send(sockfd, buf, size, 0);
+        sent = ::send(sockfd, buf, size, MSG_NOSIGNAL);
         if(sent == -1) {
             perror("TCP Socket: error while sending");
             throw std::runtime_error("TCP Socket: error while sending");
