@@ -20,7 +20,7 @@ struct request {
     string target_path;
     string data;
 
-    request(uint8_t c = 0, string tp = "", string d = ""):
+    request(const uint8_t c = 0, const string& tp = "", const string& d = ""):
         cmd(c), target_path(tp), data(d) {}
 };
 
@@ -28,6 +28,6 @@ struct response {
     bool status_ok;
     string data;
 
-    response(bool ok = false, string d = ""):
+    response(const bool ok = false, const string& d = ""):
         status_ok(ok), data(d) {}
 };
