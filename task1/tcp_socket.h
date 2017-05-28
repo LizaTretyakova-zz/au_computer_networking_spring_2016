@@ -15,6 +15,8 @@
 using std::cout;
 using std::cerr;
 
+typedef const char* tcp_port;
+
 const hostname DEFAULT_ADDR = "127.0.0.1";
 const tcp_port DEFAULT_PORT = "40001";
 const int BACKLOG = 10;

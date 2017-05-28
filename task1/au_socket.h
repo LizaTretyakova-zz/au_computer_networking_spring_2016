@@ -1,0 +1,81 @@
+#pragma once
+
+#include "stream_socket.h"
+
+#include <cstring>
+#include <errno.h>
+#include <iostream>
+#include <netdb.h>
+#include <netinet/ip.h>       // struct ip and IP_MAXPACKET (which is 65535)
+#include <netinet/tcp.h>      //Provides declarations for tcp header
+#include <stdexcept>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+using std::cout;
+using std::cerr;
+
+typedef unsigned short au_stream_port;
+
+const hostname DEFAULT_AU_ADDR = "127.0.0.1";
+const au_stream_port DEFAULT_AU_CLIENT_PORT = 40001;
+const au_stream_port DEFAULT_AU_SERVER_PORT = 301;
+const unsigned char DEFAULT_AU_OFFSET = 5;
+
+struct au_socket: virtual stream_socket {
+
+protected:
+    hostname addr;
+    au_stream_port cport;
+    au_stream_port sport;
+    int sockfd;
+    char buffer[IP_MAXPACKET];
+
+    bool handshake(struct addrinfo* servinfo);
+
+public:
+    au_socket(hostname a = DEFAULT_AU_ADDR,
+              au_stream_port cp = DEFAULT_AU_CLIENT_PORT,
+              au_stream_port sp = DEFAULT_AU_SERVER_PORT);
+    au_socket(int new_fd, hostname a = DEFAULT_AU_ADDR,
+              au_stream_port cp = DEFAULT_AU_CLIENT_PORT,
+              au_stream_port sp = DEFAULT_AU_SERVER_PORT);
+
+    ~au_socket() {
+        close(sockfd);
+    }
+
+    virtual void send(const void *buf, size_t size);
+    virtual void recv(void *buf, size_t size);
+};
+
+struct au_client_socket: au_socket, stream_client_socket {
+    au_client_socket(hostname a = DEFAULT_AU_ADDR,
+                     au_stream_port cp = DEFAULT_AU_CLIENT_PORT,
+                     au_stream_port sp = DEFAULT_AU_SERVER_PORT):
+        au_socket(a, cp, sp) {}
+
+    void connect();
+};
+
+struct au_server_socket: stream_server_socket {
+protected:
+    int sockfd;
+    hostname addr;
+    au_stream_port port;
+    char buffer[IP_MAXPACKET];
+
+public:
+    au_server_socket(hostname a = DEFAULT_AU_ADDR,
+                     au_stream_port port_number = DEFAULT_AU_SERVER_PORT);
+
+    ~au_server_socket() {
+        close(sockfd);
+    }
+
+    virtual stream_socket* accept_one_client();
+};
+
+void fill_tcp_header(struct tcphdr *tcph, au_stream_port src_port, au_stream_port dst_port);

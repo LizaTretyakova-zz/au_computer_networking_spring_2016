@@ -14,7 +14,7 @@
 
 using std::cerr;
 
-void check_socket_set(int sockfd) {
+static void check_socket_set(int sockfd) {
     if (sockfd == -1) {
         throw std::runtime_error("Socket was not set properly, revert\n");
     }
