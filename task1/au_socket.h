@@ -36,6 +36,7 @@ protected:
     int sockfd;
     char buffer[AU_BUF_SIZE];
 
+    bool is_ours();
     bool handshake(struct addrinfo* servinfo);
 
 public:

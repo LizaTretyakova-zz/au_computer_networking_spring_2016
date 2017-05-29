@@ -32,6 +32,7 @@ au_socket::au_socket(hostname a, au_stream_port cp, au_stream_port sp):
         perror("AU client: error creating socket");
         throw std::runtime_error("socket() call failed");
     }
+    fprintf(stderr, "%p\n", addr);
     cerr << "created socket with fd " << sockfd << endl;
     memset(buffer, 0, AU_BUF_SIZE);
 }
@@ -108,22 +109,45 @@ void au_socket::send(const void* buf, size_t size) {
     }
 }
 
+bool au_socket::is_ours() {
+    struct iphdr *iph = (struct iphdr *)buffer;
+    struct tcphdr *tcph = (struct tcphdr*)(buffer + sizeof(struct ip));
+    struct sockaddr_in source;
+    memset(&source, 0, sizeof(source));
+    source.sin_addr.s_addr = iph->saddr;
+
+    cerr << "meeow";
+    cerr << (const char*)addr;
+    string caddr = string(addr);
+    char tmp[INET_ADDRSTRLEN];
+    string saddr = string(inet_ntop(PF_INET, &(source.sin_addr), tmp, INET_ADDRSTRLEN));
+    cerr << caddr << " " << saddr << endl;
+
+    return tcph->th_sport == sport
+            && tcph->th_dport == cport
+            && strcmp(addr, inet_ntoa(source.sin_addr));
+}
+
 void au_socket::recv(void *buf, size_t size) {
     check_socket_set(sockfd);
 
     struct sockaddr saddr;
     socklen_t saddr_size = sizeof(saddr);
 
+    fprintf(stderr, "%p", addr);
+
     /*
      * while (hasn't yet received the finishing message) { */
-    int res = recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size);
-    if(res < 0) {
-        perror("AU Socket: error while receiving");
-        throw std::runtime_error("AU Socket: error while receiving");
-    }
-
-//    struct iphdr *iph = (struct iphdr *)buffer;
-//    struct tcphdr* tcph = (struct tcphdr*)(buffer + sizeof(struct ip));
+    int res;
+    do {
+        res = recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size);
+        if(res < 0) {
+            perror("AU Socket: error while receiving");
+            throw std::runtime_error("AU Socket: error while receiving");
+        }
+        cerr << "meow " << endl;
+        cerr << "meow " << is_ours() << endl;
+    } while(!is_ours());
     size_t iphdrlen = sizeof(struct ip);
     size_t tcphdrlen = sizeof(struct tcphdr);
     memcpy(buf, buffer + iphdrlen + tcphdrlen, std::min((size_t)(res - iphdrlen - tcphdrlen), size));
