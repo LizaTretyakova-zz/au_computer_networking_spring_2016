@@ -134,7 +134,7 @@ void au_socket::recv(void *buf, size_t size) {
     struct sockaddr saddr;
     socklen_t saddr_size = sizeof(saddr);
 
-    fprintf(stderr, "%p", addr);
+    fprintf(stderr, "%p\n", addr);
 
     /*
      * while (hasn't yet received the finishing message) { */
