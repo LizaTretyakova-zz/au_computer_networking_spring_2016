@@ -23,6 +23,9 @@ const hostname DEFAULT_AU_ADDR = "127.0.0.1";
 const au_stream_port DEFAULT_AU_CLIENT_PORT = 40001;
 const au_stream_port DEFAULT_AU_SERVER_PORT = 301;
 const unsigned char DEFAULT_AU_OFFSET = 5;
+const unsigned short IPPROTO_AU = 18;
+const size_t AU_BUF_SIZE = IP_MAXPACKET;
+const size_t AU_BUF_CAPACITY = AU_BUF_SIZE - sizeof(struct iphdr) - sizeof(struct tcphdr) - 1;
 
 struct au_socket: virtual stream_socket {
 
@@ -31,7 +34,7 @@ protected:
     au_stream_port cport;
     au_stream_port sport;
     int sockfd;
-    char buffer[IP_MAXPACKET];
+    char buffer[AU_BUF_SIZE];
 
     bool handshake(struct addrinfo* servinfo);
 
@@ -65,7 +68,7 @@ protected:
     int sockfd;
     hostname addr;
     au_stream_port port;
-    char buffer[IP_MAXPACKET];
+    char buffer[AU_BUF_SIZE];
 
 public:
     au_server_socket(hostname a = DEFAULT_AU_ADDR,

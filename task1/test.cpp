@@ -5,6 +5,7 @@
 #include <memory>
 #include <cstring>
 #include <pthread.h>
+#include <string>
 
 #include "stream_socket.h"
 #include "tcp_socket.h"
@@ -131,12 +132,14 @@ int main()
 //    test_tcp_stream_sockets();
 //    test_au_stream_sockets();
 
+    char msg[20];
+    strcpy(msg, "hello, au");
     au_socket s1(TEST_ADDR, AU_TEST_CLIENT_PORT, AU_TEST_SERVER_PORT);
     au_socket s2(TEST_ADDR, AU_TEST_SERVER_PORT, AU_TEST_CLIENT_PORT);
     cerr << "sockets created" << endl;
-    s1.send(NULL, 0);
+    s1.send(msg, 10);
     cerr << "sent" << endl;
-    s2.recv(NULL, 0);
-
+    s2.recv(msg + 10, 10);
+    cerr << std::string(msg) << std::string(msg + 10) << endl;
     return 0;
 }
