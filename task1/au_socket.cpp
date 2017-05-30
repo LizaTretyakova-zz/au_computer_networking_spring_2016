@@ -95,13 +95,17 @@ void au_socket::recv(void *buf, size_t size) {
             perror("AU Socket: error while receiving");
             throw std::runtime_error("AU Socket: error while receiving");
         }
-        cerr << "meow " << is_ours() << endl;
     } while(!is_ours());
     size_t iphdrlen = sizeof(struct ip);
     size_t tcphdrlen = sizeof(struct tcphdr);
-    memcpy(buf, buffer + iphdrlen + tcphdrlen, std::min((size_t)(res - iphdrlen - tcphdrlen), size));
 
-    cerr << "received " << res << " bytes of data:" << endl;
+    int nwords = (int)std::min((size_t)(res - iphdrlen - tcphdrlen), size);
+        if(control_csum(nwords)) {
+        memcpy(buf, buffer + iphdrlen + tcphdrlen, nwords);
+        cerr << "received " << res << " bytes of data:" << endl;
+    } else {
+        cerr << "Checksum mismatch!" << endl;
+    }
     /* }
      */
 }

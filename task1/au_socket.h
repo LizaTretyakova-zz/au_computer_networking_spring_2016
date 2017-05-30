@@ -45,6 +45,8 @@ protected:
     void get_remote_sockaddr(struct sockaddr_in* dst);
     void form_packet(const void* buf, size_t size);
     void check_socket_set();
+    unsigned short checksum(unsigned short *buf, int nwords);
+    bool control_csum(int nwords);
 
 public:
     au_socket(hostname a = DEFAULT_AU_ADDR,
