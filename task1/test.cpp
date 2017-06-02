@@ -6,6 +6,8 @@
 #include <cstring>
 #include <pthread.h>
 #include <string>
+#include <thread>
+#include <chrono>
 
 #include "stream_socket.h"
 #include "tcp_socket.h"
@@ -127,19 +129,46 @@ static std::unique_ptr<stream_socket> server_client;
 // #endif
 // }
 
+// static void test_au_stream_dummy() {
+//    char msg[20];
+//    strcpy(msg, "hello, au");
+//    au_client_socket s1(TEST_ADDR, AU_TEST_CLIENT_PORT, AU_TEST_SERVER_PORT);
+//    au_client_socket s2(TEST_ADDR, AU_TEST_SERVER_PORT, AU_TEST_CLIENT_PORT);
+//    cerr << "sockets created" << endl;
+//    s1.send(msg, 10);
+//    cerr << "sent" << endl;
+//    s2.recv(msg + 10, 10);
+//    cerr << std::string(msg) << std::string(msg + 10) << endl;
+// }
+
+static void* au_server_socket_test_func(void*) {
+    au_server_socket s(TEST_ADDR, AU_TEST_SERVER_PORT);
+    s.accept_one_client();
+    return NULL;
+}
+
+static void* au_client_socket_test_func(void*) {
+    std::this_thread::sleep_for (std::chrono::seconds(1));
+    au_client_socket c(TEST_ADDR, AU_TEST_CLIENT_PORT, AU_TEST_SERVER_PORT);
+    c.connect();
+    return NULL;
+}
+
+static void test_au_connect_accept() {
+    pthread_t th_server;
+    pthread_t th_client;
+    pthread_create(&th_server, NULL, au_server_socket_test_func, NULL);
+    pthread_create(&th_client, NULL, au_client_socket_test_func, NULL);
+    pthread_join(th_server, NULL);
+    pthread_join(th_client, NULL);
+}
+
 int main()
 {
 //    test_tcp_stream_sockets();
 //    test_au_stream_sockets();
 
-    char msg[20];
-    strcpy(msg, "hello, au");
-    au_client_socket s1(TEST_ADDR, AU_TEST_CLIENT_PORT, AU_TEST_SERVER_PORT);
-    au_client_socket s2(TEST_ADDR, AU_TEST_SERVER_PORT, AU_TEST_CLIENT_PORT);
-    cerr << "sockets created" << endl;
-    s1.send(msg, 10);
-    cerr << "sent" << endl;
-    s2.recv(msg + 10, 10);
-    cerr << std::string(msg) << std::string(msg + 10) << endl;
+    test_au_connect_accept();
+
     return 0;
 }

@@ -85,6 +85,8 @@ void au_client_socket::connect() {
     struct sockaddr saddr;
     socklen_t saddr_size = sizeof(saddr);
 
+    cerr << "Connecting" << endl;
+
     // send syn
     unsigned int c_seq = rand();
     struct tcphdr tcph;
@@ -92,30 +94,33 @@ void au_client_socket::connect() {
     tcph.th_sport = local_port;
     tcph.th_dport = remote_port;
     tcph.th_seq = htonl(c_seq);
+    cerr << "c_seq set to " << c_seq << endl;
     tcph.th_off = 0; // sizeof(struct tcphdr) / 4;
     tcph.th_flags = TH_SYN;
     tcph.th_win = htonl(65535);
     tcph.th_sum = 0;
 
     if(::sendto(sockfd, &tcph, sizeof(struct tcphdr), 0,
-                (struct sockaddr *)(&remote_addr), sizeof(remote_addr))) {
-        perror("AU Socket: error while sending syn");
+                (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
+        perror("AU Client Socket: error while sending syn");
         throw std::runtime_error("AU Socket: error while sending");
     }
 
     // catch syn_ack
     do {
-        if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size)) {
-            perror("AU Socket: error while receiving");
-            throw std::runtime_error("AU Socket: error while receiving");
+        if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size) < 0) {
+            perror("AU Client Socket: error while receiving");
+            throw std::runtime_error("AU Client Socket: error while receiving");
         }
     } while(!is_ours() || !from(&remote_addr) || !is_syn_ack());
 
     // check the correctness
     struct tcphdr* tcph_resp = (struct tcphdr*)(buffer + sizeof(struct ip));
-    if(tcph_resp->th_ack != c_seq + 1) {
+    if(ntohl(tcph_resp->th_ack) != c_seq + 1) {
         cerr << "Error connecting to server: wrong seq" << endl;
-        return;
+        cerr << "th_ack=" << tcph_resp->th_ack << " c_seq=" << c_seq << endl;
+        throw std::runtime_error("Wrong seq on client from server");
+//        return;
     }
 
     // happily acknowledge
@@ -138,11 +143,13 @@ stream_socket* au_server_socket::accept_one_client() {
     struct sockaddr saddr;
     socklen_t saddr_size = sizeof(saddr);
 
+    cerr << "Accepting" << endl;
+
     // catch a syn packet
     do {
-        if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size)) {
-            perror("AU Socket: error while receiving");
-            throw std::runtime_error("AU Socket: error while receiving");
+        if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size) < 0) {
+            perror("AU Server Socket: error while receiving syn");
+            throw std::runtime_error("AU Server Socket: error while receiving syn");
         }
     } while(!to_this_server() || !is_syn());
 
@@ -178,13 +185,13 @@ stream_socket* au_server_socket::accept_one_client() {
 
     // catch an ack packet
     do {
-        if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size)) {
+        if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size) < 0) {
             perror("AU Socket: error while receiving");
             throw std::runtime_error("AU Socket: error while receiving");
         }
     } while(!to_this_server() || !from(&client) || !is_ack());
 
-    if(tcph->th_seq == s_seq + 1) {
+    if(ntohl(tcph->th_seq) == s_seq + 1) {
         // return tuned socket
         char peer_addr[INET_ADDRSTRLEN];
         if(inet_ntop(AF_INET, &(client.sin_addr), peer_addr, INET_ADDRSTRLEN) == NULL) {
