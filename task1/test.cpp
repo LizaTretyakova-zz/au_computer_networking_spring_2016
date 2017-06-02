@@ -134,8 +134,8 @@ int main()
 
     char msg[20];
     strcpy(msg, "hello, au");
-    au_socket s1(TEST_ADDR, AU_TEST_CLIENT_PORT, AU_TEST_SERVER_PORT);
-    au_socket s2(TEST_ADDR, AU_TEST_SERVER_PORT, AU_TEST_CLIENT_PORT);
+    au_client_socket s1(TEST_ADDR, AU_TEST_CLIENT_PORT, AU_TEST_SERVER_PORT);
+    au_client_socket s2(TEST_ADDR, AU_TEST_SERVER_PORT, AU_TEST_CLIENT_PORT);
     cerr << "sockets created" << endl;
     s1.send(msg, 10);
     cerr << "sent" << endl;

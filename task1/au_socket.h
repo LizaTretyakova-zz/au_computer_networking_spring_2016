@@ -57,6 +57,7 @@ protected:
     bool is_ack();
     bool is_syn_ack();
     bool is_fin();
+    bool from(struct sockaddr_in* peer);
     bool is_ours();
 
 public:
@@ -75,7 +76,8 @@ public:
     virtual void recv(void *buf, size_t size);
 };
 
-class au_client_socket: au_socket, stream_client_socket {
+struct au_client_socket: au_socket, stream_client_socket {
+private:
     void send_syn();
 public:
     au_client_socket(hostname a = DEFAULT_AU_ADDR,
@@ -85,8 +87,6 @@ public:
         get_sockaddr(addr, remote_port, &remote_addr);
     }
 
-    virtual void send(const void *buf, size_t size);
-    virtual void recv(void *buf, size_t size);
     void connect();
 };
 

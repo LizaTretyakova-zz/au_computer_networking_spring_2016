@@ -15,63 +15,17 @@ void au_socket::check_socket_set() {
     }
 }
 
-//void au_socket::get_remote_sockaddr(struct sockaddr_in* dst) {
-//    int rv;
-//    struct addrinfo hints;
-//    struct addrinfo *servinfo;
-//    struct addrinfo *p;
-
-//    memset(&hints, 0, sizeof hints);
-//    hints.ai_family = AF_INET;
-//    hints.ai_socktype = 0;
-
-//    string service = std::to_string(remote_port);
-
-//    if ((rv = getaddrinfo(addr, service.c_str(), &hints, &servinfo)) != 0) {
-//        throw std::runtime_error("getaddrinfo:" + std::string(gai_strerror(rv)) + "\n");
-//    }
-
-//    for(p = servinfo; p != NULL; p = p->ai_next) {
-//        if(p->ai_socktype == SOCK_RAW && p->ai_family == AF_INET) {
-//            memcpy(dst, p->ai_addr, sizeof(struct sockaddr));
-//            break;
-//        }
-//    }
-//    if(p == NULL) {
-//        throw std::runtime_error("SOCK_RAW not found");
-//    }
-
-//    freeaddrinfo(servinfo);
-//}
-
-//void au_socket::get_local_sockaddr(struct sockaddr_in* dst) {
-//    int rv;
-//    struct addrinfo hints;
-//    struct addrinfo *servinfo;
-
-//    memset(&hints, 0, sizeof hints);
-//    hints.ai_family = AF_INET;
-//    hints.ai_socktype = SOCK_RAW;
-
-//    string service = std::to_string(local_port);
-
-//    if ((rv = getaddrinfo(AU_LOCAL_ADDR, service.c_str(), &hints, &servinfo)) != 0) {
-//        throw std::runtime_error("getaddrinfo:" + std::string(gai_strerror(rv)) + "\n");
-//    }
-
-//    memcpy(dst, servinfo->ai_addr, sizeof(struct sockaddr));
-
-//    freeaddrinfo(servinfo);
-//}
-
 void au_socket::get_sockaddr(hostname host_addr, au_stream_port port, struct sockaddr_in* dst) {
     int rv;
     struct addrinfo hints;
     struct addrinfo *servinfo;
 
+    cerr << "get_sockaddr" << endl;
+    cerr << string(host_addr) << endl;
+
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_RAW;
+    hints.ai_socktype = 0;
 
     string service = std::to_string(port);
 
@@ -151,10 +105,19 @@ bool au_socket::is_fin() {
     return tcph->th_flags == TH_FIN;
 }
 
+bool au_socket::from(struct sockaddr_in* peer) {
+    struct iphdr *iph = (struct iphdr *)buffer;
+    return peer->sin_addr.s_addr == iph->saddr;
+}
+
 bool au_socket::is_ours() {
     struct iphdr *iph = (struct iphdr *)buffer;
     struct tcphdr *tcph = (struct tcphdr*)(buffer + sizeof(struct ip));
 
+    cerr << "is_ours" << endl;
+
+    cerr << "tcph->th_sport = " << tcph->th_sport << " tcph->th_dport = " << tcph->th_dport << endl;
+    cerr << "remote_port    = " << remote_port << " local_port     = " << local_port << endl;
     if(tcph->th_sport != remote_port
             || tcph->th_dport != local_port) {
         return false;
@@ -164,9 +127,7 @@ bool au_socket::is_ours() {
     memset(&source, 0, sizeof(struct sockaddr_in));
     source.sin_addr.s_addr = iph->saddr;
 
-//    struct sockaddr_in expected;
-//    memset(&expected, 0, sizeof(struct sockaddr_in));
-//    get_remote_sockaddr(addr, remote_port, &expected);
-
+    cerr << "source.sin_addr.s_addr = " << source.sin_addr.s_addr << endl;
+    cerr << "remote_addr.sin_addr.s_addr = " << remote_addr.sin_addr.s_addr << endl;
     return source.sin_addr.s_addr == remote_addr.sin_addr.s_addr;
 }
