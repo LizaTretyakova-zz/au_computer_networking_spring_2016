@@ -3,7 +3,7 @@
 # Based on https://github.com/yeputons/project-templates
 
 TARGETS=test client server
-SRCS_common=$(SRCDIR)/tcp_socket.cpp $(SRCDIR)/au_socket.cpp $(SRCDIR)/pretty_print.cpp $(SRCDIR)/utils.cpp
+SRCS_common=$(SRCDIR)/tcp_socket.cpp $(SRCDIR)/au_socket.cpp $(SRCDIR)/pretty_print.cpp $(SRCDIR)/utils.cpp $(SRCDIR)/au_client_utils.cpp $(SRCDIR)/au_server_utils.cpp
 SRCS_serializ = $(SRCDIR)/serialization.cpp
 SRCS_test=$(SRCS_common) $(SRCDIR)/test.cpp
 SRCS_client=$(SRCS_common) $(SRCS_serializ) $(SRCDIR)/client.cpp

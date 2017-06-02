@@ -34,22 +34,22 @@ au_socket::au_socket(int new_fd, hostname a, au_stream_port cp, au_stream_port s
     sockfd = new_fd;
 }
 
-au_server_socket::au_server_socket(hostname a, au_stream_port port_number):
-    addr(a), port(port_number) {
-    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_AU)) == -1) {
-        perror("AU server: error creating socket");
-        throw std::runtime_error("socket() call failed");
-    }
-    memset(buffer, 0, AU_BUF_SIZE);
-}
+//au_server_socket::au_server_socket(hostname a, au_stream_port port_number):
+//    addr(a), port(port_number) {
+//    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_AU)) == -1) {
+//        perror("AU server: error creating socket");
+//        throw std::runtime_error("socket() call failed");
+//    }
+//    memset(buffer, 0, AU_BUF_SIZE);
+//}
 
 void au_socket::send(const void* buf, size_t size) {
     check_socket_set();
 
     // Address resolution stuff
-    struct sockaddr_in sin;
-    memset (&sin, 0, sizeof (struct sockaddr_in));
-    get_remote_sockaddr(&sin);
+//    struct sockaddr_in sin;
+//    memset (&sin, 0, sizeof (struct sockaddr_in));
+//    get_remote_sockaddr(&sin);
 
     // Filling in the packet
     // (only one packet for now)
@@ -68,16 +68,12 @@ void au_socket::send(const void* buf, size_t size) {
     form_packet(buf, size);
 
     // send
-    int sent = 0;
-    size_t hdr_len = sizeof(struct tcphdr);
-    size_t data_len = hdr_len + strlen(buffer + hdr_len);
-    sent = ::sendto(sockfd, buffer, data_len, 0,
-                    (struct sockaddr *)(&sin), sizeof(sin));
-    if(sent == -1) {
+    size_t data_len = sizeof(struct tcphdr) + strlen(buffer + sizeof(struct tcphdr));
+    if(::sendto(sockfd, buffer, data_len, 0,
+                (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
         perror("AU Socket: error while sending");
         throw std::runtime_error("AU Socket: error while sending");
     }
-    cerr << "sent " << sent << " bytes of data_len " << data_len << endl;
 }
 
 void au_socket::recv(void *buf, size_t size) {
@@ -100,7 +96,7 @@ void au_socket::recv(void *buf, size_t size) {
     size_t tcphdrlen = sizeof(struct tcphdr);
 
     int nwords = (int)std::min((size_t)(res - iphdrlen - tcphdrlen), size);
-        if(control_csum(nwords)) {
+    if(control_csum(nwords)) {
         memcpy(buf, buffer + iphdrlen + tcphdrlen, nwords);
         cerr << "received " << res << " bytes of data:" << endl;
     } else {
@@ -116,5 +112,50 @@ void au_client_socket::connect() {
 }
 
 stream_socket* au_server_socket::accept_one_client() {
-    return NULL;
+    check_socket_set();
+
+    struct sockaddr saddr;
+    socklen_t saddr_size = sizeof(saddr);
+
+    // catch a syn packet
+    int res;
+    do {
+        res = recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size);
+        if(res < 0) {
+            perror("AU Socket: error while receiving");
+            throw std::runtime_error("AU Socket: error while receiving");
+        }
+    } while(!to_this_server() || !is_syn());
+
+    // extract headers
+    struct iphdr* iph = (struct iphdr*)buffer;
+    struct tcphdr* tcph = (struct tcphdr*)(buffer + sizeof(struct ip));
+
+    // remember sender's addr
+    struct sockaddr_in client;
+    memset(&client, 0, sizeof(struct sockaddr_in));
+    client.sin_addr.s_addr = iph->saddr;
+    client.sin_family = AF_INET;
+    client.sin_port = tcph->th_sport;
+
+    // respond with a syn_ack packet
+    struct tcphdr response;
+    memcpy(&response, tcph, sizeof(struct tcphdr));
+    response.th_sport = tcph->th_dport;
+    response.th_dport = tcph->th_sport;
+    response.th_seq = htonl(rand());
+    response.th_ack = htonl(ntohl(tcph->th_seq) + 1);
+    response.th_off = 0; // sizeof(struct tcphdr) / 4;
+    response.th_flags = TH_SYN | TH_ACK;
+    response.th_win = htonl(65535);
+    response.th_sum = 0;
+
+    if(::sendto(sockfd, &response, sizeof(struct tcphdr), 0,
+                (struct sockaddr*)&client, sizeof(client)) < 0) {
+        perror("failed to send syn_ack");
+        throw std::runtime_error("AU Server Socket: failed to send syn_ack");
+    }
+
+
+    return new au_socket();
 }
