@@ -78,10 +78,14 @@ public:
               state_t state = DISCONNECTED);
 
     ~au_socket() {
-        close(sockfd);
+//        ::close(sockfd);
+        if(sockfd != -1 && state == CONNECTED) {
+            close();
+        }
     }
 
     void set_remote_addr();
+    void close();
     virtual void send(const void *buf, size_t size);
     virtual void recv(void *buf, size_t size);
 };

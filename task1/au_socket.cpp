@@ -45,6 +45,27 @@ void au_socket::set_remote_addr() {
     get_sockaddr(addr, remote_port, &remote_addr);
 }
 
+void au_socket::close() {
+    log("[CLOSE] port " + std::to_string(local_port));
+    check_socket_set();
+
+    struct my_tcphdr tcph;
+    memset(&tcph, 0, sizeof(struct my_tcphdr));
+    tcph.t.th_sport = local_port;
+    tcph.t.th_dport = remote_port;
+    tcph.t.th_sum = 0;
+    tcph.t.th_flags = TH_FIN;
+
+    if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
+                (struct sockaddr*)&remote_addr, sizeof(struct sockaddr)) < 0) {
+        perror("AU Socket: error sending FIN");
+        throw std::runtime_error("AU Socket: error sending FIN");
+    }
+    ::close(sockfd);
+
+    log("[CLOSE] closed");
+}
+
 void au_socket::send(const void* buf, size_t size) {
     log("[SEND]");
     check_socket_set();
@@ -81,14 +102,24 @@ void au_socket::send(const void* buf, size_t size) {
 
         // catch the ack
         time_t timer = time(NULL);
-        do {
-            log("[SEND] wait for ack" + std::to_string(timer));
+        while(true) {
             if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size) < 0) {
                 perror("AU Socket: error while receiving");
                 throw std::runtime_error("AU Socket: error while receiving");
             }
-            log("[SEND] got cmth");
             tcph = (struct my_tcphdr*)(buffer + sizeof(struct ip));
+
+            if(is_ours()) {
+                if(is_ack()) {
+                    log("[SEND] got an ack");
+                    break;
+                } else if(is_fin()) {
+                    log("[SEND] connection closed");
+                    ::close(sockfd);
+                    sockfd = -1;
+                    break;
+                }
+            }
 
             double diff = difftime(time(NULL), timer);
             if(diff > 1) {
@@ -96,9 +127,8 @@ void au_socket::send(const void* buf, size_t size) {
                 need_send = true;
                 break;
             }
-        } while(!is_ours() || !is_ack());
+        }
     }
-
     log("[SEND] successfully sent: " + string((char*)buf));
 }
 
