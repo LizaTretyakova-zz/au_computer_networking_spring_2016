@@ -12,6 +12,7 @@
 #include "stream_socket.h"
 #include "tcp_socket.h"
 #include "au_socket.h"
+#include "logging.h"
 
 // #define TEST_TCP_STREAM_SOCKET
 #define TEST_AU_STREAM_SOCKET
@@ -185,7 +186,7 @@ static void test_au_connect2() {
 
     stream_socket* sc = s.accept_one_client();
     sc->recv(msg, 14);
-    cerr << "Server received:\n" << std::string(msg) << endl;
+    log("Server received:\n" + std::string(msg));
     sc->send("Goodbuy, World!", 16);
 
     pthread_join(th_client, NULL);
@@ -196,6 +197,7 @@ int main()
 //    test_tcp_stream_sockets();
 //    test_au_stream_sockets();
 
+//    test_au_stream_dummy();
 //    test_au_connect_accept();
     test_au_connect2();
     return 0;

@@ -22,6 +22,12 @@ using std::string;
 
 typedef unsigned short au_stream_port;
 
+struct my_tcphdr {
+    // that moment when you want to use Go's embedding...
+    struct tcphdr t;
+    unsigned short small_things;
+};
+
 const hostname DEFAULT_AU_ADDR = "127.0.0.1";
 const hostname AU_LOCAL_ADDR = "127.0.0.1";
 const au_stream_port DEFAULT_AU_CLIENT_PORT = 40001;
@@ -29,18 +35,12 @@ const au_stream_port DEFAULT_AU_SERVER_PORT = 301;
 const unsigned char DEFAULT_AU_OFFSET = 5;
 const unsigned short IPPROTO_AU = 18;
 const size_t AU_BUF_SIZE = IP_MAXPACKET;
-const size_t AU_BUF_CAPACITY = AU_BUF_SIZE - sizeof(struct iphdr) - sizeof(struct tcphdr) - 1;
+const size_t AU_BUF_CAPACITY = AU_BUF_SIZE - sizeof(struct iphdr) - sizeof(struct my_tcphdr) - 1;
 const int32_t AU_INIT_SEQ = 0x131123;
 
 enum state_t {
     CONNECTED,
     DISCONNECTED
-};
-
-struct my_tcphdr {
-    // that moment when you want to use Go's embedding...
-    struct tcphdr t;
-    unsigned short small_things;
 };
 
 struct au_socket: virtual stream_socket {
@@ -59,7 +59,6 @@ protected:
     void form_packet(const void* buf, size_t size);
     void check_socket_set();
     unsigned short checksum(unsigned short *buf, int nwords);
-    bool control_csum(int nwords);
 
     bool is_syn();
     bool is_ack();
@@ -82,6 +81,7 @@ public:
         close(sockfd);
     }
 
+    void set_remote_addr();
     virtual void send(const void *buf, size_t size);
     virtual void recv(void *buf, size_t size);
 };
@@ -94,7 +94,8 @@ public:
                      au_stream_port cp = DEFAULT_AU_CLIENT_PORT,
                      au_stream_port sp = DEFAULT_AU_SERVER_PORT):
         au_socket(a, cp, sp, DISCONNECTED) {
-        get_sockaddr(addr, remote_port, &remote_addr);
+        set_remote_addr();
+        //        get_sockaddr(addr, remote_port, &remote_addr);
     }
 
     void connect();
@@ -113,4 +114,4 @@ public:
     virtual stream_socket* accept_one_client();
 };
 
-void fill_tcp_header(struct tcphdr *tcph, au_stream_port src_port, au_stream_port dst_port);
+void fill_tcp_header(struct my_tcphdr *tcph, au_stream_port src_port, au_stream_port dst_port);
