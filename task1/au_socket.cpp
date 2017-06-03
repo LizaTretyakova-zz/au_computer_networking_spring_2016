@@ -53,18 +53,18 @@ void au_socket::send(const void* buf, size_t size) {
     socklen_t saddr_size = sizeof(saddr);
 
     // clear buffer
-    memset(buffer, 0, AU_BUF_SIZE);
+    memset(out_buffer, 0, AU_BUF_SIZE);
 
     // write tcphdr
-    struct my_tcphdr* tcph = (struct my_tcphdr*)(buffer);
+    struct my_tcphdr* tcph = (struct my_tcphdr*)(out_buffer);
     tcph->t.th_sport = local_port;
     tcph->t.th_dport = remote_port;
 
     // write data
     int nwords = std::min(size, AU_BUF_CAPACITY);
-    char* data = buffer + sizeof(struct my_tcphdr);
+    char* data = out_buffer + sizeof(struct my_tcphdr);
     memcpy(data, buf, nwords);
-    buffer[AU_BUF_SIZE - 1] = 0;
+    out_buffer[AU_BUF_SIZE - 1] = 0;
     tcph->t.th_sum = checksum((unsigned short*)data, nwords);
 
     // send
@@ -73,7 +73,7 @@ void au_socket::send(const void* buf, size_t size) {
         log("[SEND] while");
         need_send = false;
 
-        if(::sendto(sockfd, buffer, sizeof(struct my_tcphdr) + nwords, 0,
+        if(::sendto(sockfd, out_buffer, sizeof(struct my_tcphdr) + nwords, 0,
                     (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
             perror("AU Socket: error while sending");
             throw std::runtime_error("AU Socket: error while sending");
