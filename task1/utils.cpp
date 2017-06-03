@@ -92,3 +92,15 @@ bool au_socket::is_ours() {
 //        + "\nremote_addr.sin_addr.s_addr = " + std::to_string(remote_addr.sin_addr.s_addr));
     return source.sin_addr.s_addr == remote_addr.sin_addr.s_addr;
 }
+
+void au_socket::set_rtt(time_t rtt) {
+    RTT = rtt;
+    SRTT = RTT;
+    RTO = DELAY_VARIANCE * SRTT;
+}
+
+void au_socket::update_rtt(time_t rtt) {
+    RTT = rtt;
+    SRTT = SMOOTHING_FACTOR * SRTT + (1 - SMOOTHING_FACTOR) * RTT;
+    RTO = DELAY_VARIANCE * RTT;
+}

@@ -38,6 +38,9 @@ const size_t AU_BUF_SIZE = IP_MAXPACKET;
 const size_t AU_BUF_CAPACITY = AU_BUF_SIZE - sizeof(struct iphdr) - sizeof(struct my_tcphdr) - 1;
 const int32_t AU_INIT_SEQ = 0x131123;
 
+const double SMOOTHING_FACTOR = 0.85;
+const double DELAY_VARIANCE = 1.75;
+
 enum state_t {
     CONNECTED,
     DISCONNECTED
@@ -46,15 +49,21 @@ enum state_t {
 struct au_socket: virtual stream_socket {
 
 protected:
+    // location details
     hostname addr;
     struct sockaddr_in local_addr;
     struct sockaddr_in remote_addr;
     au_stream_port local_port;
     au_stream_port remote_port;
+    // guts
     int sockfd;
     state_t state;
     char buffer[AU_BUF_SIZE];
     char out_buffer[AU_BUF_SIZE];
+    // network
+    double RTT;
+    double SRTT;
+    double RTO;
 
     void get_sockaddr(hostname host_addr, au_stream_port port, struct sockaddr_in* dst);
     void check_socket_set();
@@ -85,6 +94,8 @@ public:
     }
 
     void set_remote_addr();
+    void set_rtt(time_t rtt);
+    void update_rtt(time_t rtt);
     void close();
     virtual void send(const void *buf, size_t size);
     virtual void recv(void *buf, size_t size);

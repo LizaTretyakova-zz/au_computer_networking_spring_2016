@@ -34,6 +34,9 @@ au_socket::au_socket(hostname a, au_stream_port cp, au_stream_port sp, state_t s
         + " and state " + std::to_string(s));
 
     memset(buffer, 0, AU_BUF_SIZE);
+    RTT = 0;
+    SRTT = 0;
+    RTO = 1;
 }
 
 au_socket::au_socket(int new_fd, hostname a, au_stream_port cp, au_stream_port sp, state_t s):
@@ -94,6 +97,7 @@ void au_socket::send(const void* buf, size_t size) {
         log("[SEND] while");
         need_send = false;
 
+        time_t send_time = time(NULL);
         if(::sendto(sockfd, out_buffer, sizeof(struct my_tcphdr) + nwords, 0,
                     (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
             perror("AU Socket: error while sending");
@@ -101,7 +105,6 @@ void au_socket::send(const void* buf, size_t size) {
         }
 
         // catch the ack
-        time_t timer = time(NULL);
         while(true) {
             if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size) < 0) {
                 perror("AU Socket: error while receiving");
@@ -112,6 +115,7 @@ void au_socket::send(const void* buf, size_t size) {
             if(is_ours()) {
                 if(is_ack()) {
                     log("[SEND] got an ack");
+                    update_rtt(difftime(time(NULL), send_time));
                     break;
                 } else if(is_fin()) {
                     log("[SEND] connection closed");
@@ -121,8 +125,8 @@ void au_socket::send(const void* buf, size_t size) {
                 }
             }
 
-            double diff = difftime(time(NULL), timer);
-            if(diff > 1) {
+            double diff = difftime(time(NULL), send_time);
+            if(diff > RTO) {
                 log("[SEND] reached ack timeout " + std::to_string(diff) + ". Retry.");
                 need_send = true;
                 break;
@@ -138,9 +142,6 @@ void au_socket::recv(void *buf, size_t size) {
 
     struct sockaddr saddr;
     socklen_t saddr_size = sizeof(saddr);
-
-    /*
-     * while (hasn't yet received the finishing message) { */
 
     // receive message
     int res;
@@ -180,8 +181,6 @@ void au_socket::recv(void *buf, size_t size) {
     } else {
         log("[RECV] checksum mismatch!");
     }
-    /* }
-     */
 }
 
 void au_client_socket::connect() {
@@ -202,6 +201,8 @@ void au_client_socket::connect() {
     tcph.t.th_win = htonl(65535);
     tcph.t.th_sum = 0;
 
+    time_t send_time = time(NULL);
+
     if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
                 (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
         perror("AU Client Socket: error while sending syn");
@@ -215,6 +216,9 @@ void au_client_socket::connect() {
             throw std::runtime_error("AU Client Socket: error while receiving");
         }
     } while(!is_ours() || !from(&remote_addr) || !is_syn_ack());
+
+    time_t resp_time = time(NULL);
+    set_rtt(difftime(resp_time, send_time));
 
     // check the correctness
     struct my_tcphdr* tcph_resp = (struct my_tcphdr*)(buffer + sizeof(struct ip));
@@ -280,6 +284,8 @@ stream_socket* au_server_socket::accept_one_client() {
     response.t.th_sum = 0;
     response.small_things = new_port;
 
+    time_t send_time = time(NULL);
+
     if(::sendto(sockfd, &response, sizeof(struct my_tcphdr), 0,
                 (struct sockaddr*)&client, sizeof(client)) < 0) {
         perror("failed to send syn_ack");
@@ -294,6 +300,8 @@ stream_socket* au_server_socket::accept_one_client() {
         }
     } while(!to_this_server() || !from(&client) || !is_ack());
 
+    time_t resp_time = time(NULL);
+
     if(ntohl(tcph->t.th_seq) == s_seq + 1) {
         // return tuned socket
         char peer_addr[INET_ADDRSTRLEN];
@@ -305,6 +313,7 @@ stream_socket* au_server_socket::accept_one_client() {
         log("Server: accepted, peer addr " + string(peer_addr));
         au_socket* new_peer = new au_socket(peer_addr, new_port, client.sin_port, CONNECTED);
         new_peer->set_remote_addr();
+        new_peer->set_rtt(difftime(resp_time, send_time));
         return new_peer;
     }
 
