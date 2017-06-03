@@ -54,6 +54,7 @@ protected:
     int sockfd;
     state_t state;
     char buffer[AU_BUF_SIZE];
+    char out_buffer[AU_BUF_SIZE];
 
     void get_sockaddr(hostname host_addr, au_stream_port port, struct sockaddr_in* dst);
     void check_socket_set();

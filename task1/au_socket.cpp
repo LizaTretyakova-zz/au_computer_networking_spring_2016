@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <cstdlib>
 #include <cstring>            // strcpy, memset(), and memcpy()
+#include <ctime>
 #include <iostream>           // cerr
 #include <netdb.h>            // struct addrinfo
 #include <netinet/in.h>       // IPPROTO_RAW, IPPROTO_IP, IPPROTO_TCP, INET_ADDRSTRLEN
@@ -67,26 +68,36 @@ void au_socket::send(const void* buf, size_t size) {
     tcph->t.th_sum = checksum((unsigned short*)data, nwords);
 
     // send
-    if(::sendto(sockfd, buffer, sizeof(struct my_tcphdr) + nwords, 0,
-                (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
-        perror("AU Socket: error while sending");
-        throw std::runtime_error("AU Socket: error while sending");
-    }
+    bool need_send = true;
+    while(need_send) {
+        log("[SEND] while");
+        need_send = false;
 
-    // catch the ack
-    do {
-        if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size) < 0) {
-            perror("AU Socket: error while receiving");
-            throw std::runtime_error("AU Socket: error while receiving");
+        if(::sendto(sockfd, buffer, sizeof(struct my_tcphdr) + nwords, 0,
+                    (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
+            perror("AU Socket: error while sending");
+            throw std::runtime_error("AU Socket: error while sending");
         }
-        tcph = (struct my_tcphdr*)(buffer + sizeof(struct ip));
-        log("[SEND] th_sport=" + std::to_string(tcph->t.th_sport)
-            + " th_dport=" + std::to_string(tcph->t.th_dport)
-            + " remote_port=" + std::to_string(remote_port)
-            + " local_port=" + std::to_string(local_port)
-            + " th_flags=" + std::to_string(tcph->t.th_flags)
-            + " TH_ACK=" + std::to_string(TH_ACK));
-    } while(!is_ours() || !is_ack());
+
+        // catch the ack
+        time_t timer = time(NULL);
+        do {
+            log("[SEND] wait for ack" + std::to_string(timer));
+            if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size) < 0) {
+                perror("AU Socket: error while receiving");
+                throw std::runtime_error("AU Socket: error while receiving");
+            }
+            log("[SEND] got cmth");
+            tcph = (struct my_tcphdr*)(buffer + sizeof(struct ip));
+
+            double diff = difftime(time(NULL), timer);
+            if(diff > 1) {
+                log("[SEND] reached ack timeout " + std::to_string(diff) + ". Retry.");
+                need_send = true;
+                break;
+            }
+        } while(!is_ours() || !is_ack());
+    }
 
     log("[SEND] successfully sent: " + string((char*)buf));
 }
@@ -130,7 +141,6 @@ void au_socket::recv(void *buf, size_t size) {
         response.t.th_dport = remote_port;
         response.t.th_seq = tcph->t.th_seq + 1;
         response.t.th_flags = TH_ACK;
-        log("[RECV] sending ack: " + std::to_string(response.t.th_sport) + " " + std::to_string(response.t.th_dport));
         if(::sendto(sockfd, &response, sizeof(struct my_tcphdr), 0,
                     (struct sockaddr*)&remote_addr, sizeof(struct sockaddr)) < 0) {
             perror("AU Socket: failed to send ack");
