@@ -56,7 +56,6 @@ protected:
     char buffer[AU_BUF_SIZE];
 
     void get_sockaddr(hostname host_addr, au_stream_port port, struct sockaddr_in* dst);
-    void form_packet(const void* buf, size_t size);
     void check_socket_set();
     unsigned short checksum(unsigned short *buf, int nwords);
 
@@ -95,7 +94,6 @@ public:
                      au_stream_port sp = DEFAULT_AU_SERVER_PORT):
         au_socket(a, cp, sp, DISCONNECTED) {
         set_remote_addr();
-        //        get_sockaddr(addr, remote_port, &remote_addr);
     }
 
     void connect();

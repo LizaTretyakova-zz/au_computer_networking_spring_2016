@@ -172,8 +172,9 @@ static void* au_client_socket_test2_func(void*) {
     c.connect();
     std::this_thread::sleep_for (std::chrono::seconds(1));
     c.send("Hello, World!", 14);
+    log("Client sent");
     c.recv(msg, 20);
-    cerr << "Client received:\n" << std::string(msg) << endl;
+    log("Client received:\n" + std::string(msg));
     return NULL;
 }
 
@@ -187,7 +188,7 @@ static void test_au_connect2() {
     stream_socket* sc = s.accept_one_client();
     sc->recv(msg, 14);
     log("Server received:\n" + std::string(msg));
-    sc->send("Goodbuy, World!", 16);
+    sc->send("Goodbye, World!", 16);
 
     pthread_join(th_client, NULL);
 }

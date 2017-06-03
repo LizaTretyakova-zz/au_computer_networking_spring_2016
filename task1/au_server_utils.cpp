@@ -6,9 +6,9 @@
 
 bool au_server_socket::to_this_server() {
     struct iphdr *iph = (struct iphdr *)buffer;
-    struct tcphdr *tcph = (struct tcphdr*)(buffer + sizeof(struct ip));
+    struct my_tcphdr *tcph = (struct my_tcphdr*)(buffer + sizeof(struct ip));
 
-    if(tcph->th_dport != local_port) {
+    if(tcph->t.th_dport != local_port) {
         return false;
     }
 
