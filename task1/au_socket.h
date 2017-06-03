@@ -32,6 +32,17 @@ const size_t AU_BUF_SIZE = IP_MAXPACKET;
 const size_t AU_BUF_CAPACITY = AU_BUF_SIZE - sizeof(struct iphdr) - sizeof(struct tcphdr) - 1;
 const int32_t AU_INIT_SEQ = 0x131123;
 
+enum state_t {
+    CONNECTED,
+    DISCONNECTED
+};
+
+struct my_tcphdr {
+    // that moment when you want to use Go's embedding...
+    struct tcphdr t;
+    unsigned short small_things;
+};
+
 struct au_socket: virtual stream_socket {
 
 protected:
@@ -41,12 +52,9 @@ protected:
     au_stream_port local_port;
     au_stream_port remote_port;
     int sockfd;
+    state_t state;
     char buffer[AU_BUF_SIZE];
 
-//    bool is_ours();
-    bool handshake(struct addrinfo* servinfo);
-//    void get_local_sockaddr(struct sockaddr_in* dst);
-//    void get_remote_sockaddr(struct sockaddr_in* dst);
     void get_sockaddr(hostname host_addr, au_stream_port port, struct sockaddr_in* dst);
     void form_packet(const void* buf, size_t size);
     void check_socket_set();
@@ -63,10 +71,12 @@ protected:
 public:
     au_socket(hostname a = DEFAULT_AU_ADDR,
               au_stream_port cp = DEFAULT_AU_CLIENT_PORT,
-              au_stream_port sp = DEFAULT_AU_SERVER_PORT);
+              au_stream_port sp = DEFAULT_AU_SERVER_PORT,
+              state_t state = DISCONNECTED);
     au_socket(int new_fd, hostname a = DEFAULT_AU_ADDR,
               au_stream_port cp = DEFAULT_AU_CLIENT_PORT,
-              au_stream_port sp = DEFAULT_AU_SERVER_PORT);
+              au_stream_port sp = DEFAULT_AU_SERVER_PORT,
+              state_t state = DISCONNECTED);
 
     ~au_socket() {
         close(sockfd);
@@ -83,7 +93,7 @@ public:
     au_client_socket(hostname a = DEFAULT_AU_ADDR,
                      au_stream_port cp = DEFAULT_AU_CLIENT_PORT,
                      au_stream_port sp = DEFAULT_AU_SERVER_PORT):
-        au_socket(a, cp, sp) {
+        au_socket(a, cp, sp, DISCONNECTED) {
         get_sockaddr(addr, remote_port, &remote_addr);
     }
 
@@ -92,21 +102,13 @@ public:
 
 struct au_server_socket: au_socket, stream_server_socket {
 protected:
-//    int sockfd;
-//    hostname addr;
-//    struct sockaddr_in local_addr;
-//    char outcoming_buffer[AU_BUF_SIZE];
     bool to_this_server();
 public:
     au_server_socket(hostname a = DEFAULT_AU_ADDR,
                      au_stream_port port_number = DEFAULT_AU_SERVER_PORT):
-        au_socket(a, port_number, 0) {
+        au_socket(a, port_number, 0, DISCONNECTED) {
         get_sockaddr(addr, local_port, &local_addr);
     }
-
-//    ~au_server_socket() {
-//        close(sockfd);
-//    }
 
     virtual stream_socket* accept_one_client();
 };

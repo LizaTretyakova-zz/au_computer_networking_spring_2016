@@ -13,15 +13,15 @@ void au_socket::check_socket_set() {
     if (sockfd < 0) {
         throw std::runtime_error("Socket was not set properly, revert\n");
     }
+    if (state == DISCONNECTED) {
+        throw std::runtime_error("Socket not connected, revert\n");
+    }
 }
 
 void au_socket::get_sockaddr(hostname host_addr, au_stream_port port, struct sockaddr_in* dst) {
     int rv;
     struct addrinfo hints;
     struct addrinfo *servinfo;
-
-    cerr << "get_sockaddr" << endl;
-    cerr << string(host_addr) << endl;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
@@ -56,12 +56,6 @@ void au_socket::form_packet(const void* buf, size_t size) {
     memcpy(data, buf, nwords);
     cerr << "wrote data to buffer:\n" << string(data) << endl;
     buffer[AU_BUF_SIZE - 1] = 0;
-}
-
-bool au_socket::handshake(struct addrinfo* servinfo) {
-    // the dummy one for now
-    (void)servinfo;
-    return true;
 }
 
 unsigned short au_socket::checksum(unsigned short *buf, int nwords) {

@@ -141,25 +141,53 @@ static std::unique_ptr<stream_socket> server_client;
 //    cerr << std::string(msg) << std::string(msg + 10) << endl;
 // }
 
-static void* au_server_socket_test_func(void*) {
-    au_server_socket s(TEST_ADDR, AU_TEST_SERVER_PORT);
-    s.accept_one_client();
-    return NULL;
-}
+//static void* au_server_socket_test_func(void*) {
+//    au_server_socket s(TEST_ADDR, AU_TEST_SERVER_PORT);
+//    s.accept_one_client();
+//    return NULL;
+//}
 
-static void* au_client_socket_test_func(void*) {
+//static void* au_client_socket_test_func(void*) {
+//    std::this_thread::sleep_for (std::chrono::seconds(1));
+//    au_client_socket c(TEST_ADDR, AU_TEST_CLIENT_PORT, AU_TEST_SERVER_PORT);
+//    c.connect();
+//    return NULL;
+//}
+
+//static void test_au_connect_accept() {
+//    pthread_t th_server;
+//    pthread_t th_client;
+//    pthread_create(&th_server, NULL, au_server_socket_test_func, NULL);
+//    pthread_create(&th_client, NULL, au_client_socket_test_func, NULL);
+//    pthread_join(th_server, NULL);
+//    pthread_join(th_client, NULL);
+//}
+
+static void* au_client_socket_test2_func(void*) {
     std::this_thread::sleep_for (std::chrono::seconds(1));
     au_client_socket c(TEST_ADDR, AU_TEST_CLIENT_PORT, AU_TEST_SERVER_PORT);
+    char msg[20];
+
     c.connect();
+    std::this_thread::sleep_for (std::chrono::seconds(1));
+    c.send("Hello, World!", 14);
+    c.recv(msg, 20);
+    cerr << "Client received:\n" << std::string(msg) << endl;
     return NULL;
 }
 
-static void test_au_connect_accept() {
-    pthread_t th_server;
+static void test_au_connect2() {
+    au_server_socket s(TEST_ADDR, AU_TEST_SERVER_PORT);
+    char msg[20];
+
     pthread_t th_client;
-    pthread_create(&th_server, NULL, au_server_socket_test_func, NULL);
-    pthread_create(&th_client, NULL, au_client_socket_test_func, NULL);
-    pthread_join(th_server, NULL);
+    pthread_create(&th_client, NULL, au_client_socket_test2_func, NULL);
+
+    stream_socket* sc = s.accept_one_client();
+    sc->recv(msg, 14);
+    cerr << "Server received:\n" << std::string(msg) << endl;
+    sc->send("Goodbuy, World!", 16);
+
     pthread_join(th_client, NULL);
 }
 
@@ -168,7 +196,7 @@ int main()
 //    test_tcp_stream_sockets();
 //    test_au_stream_sockets();
 
-    test_au_connect_accept();
-
+//    test_au_connect_accept();
+    test_au_connect2();
     return 0;
 }

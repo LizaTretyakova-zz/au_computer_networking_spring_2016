@@ -19,18 +19,21 @@ using std::cerr;
 using std::endl;
 using std::string;
 
-au_socket::au_socket(hostname a, au_stream_port cp, au_stream_port sp):
-    addr(a), local_port(cp), remote_port(sp) {
+au_socket::au_socket(hostname a, au_stream_port cp, au_stream_port sp, state_t s):
+    addr(a), local_port(cp), remote_port(sp), state(s) {
     if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_AU)) == -1) {
         perror("AU client: error creating socket");
         throw std::runtime_error("socket() call failed");
     }
-    cerr << "created socket with fd " << sockfd << endl;
+    cerr << "created socket with fd " << sockfd
+         << ", local_port " << cp
+         << ", remote_port " << sp
+         << " and state " << s << endl;
     memset(buffer, 0, AU_BUF_SIZE);
 }
 
-au_socket::au_socket(int new_fd, hostname a, au_stream_port cp, au_stream_port sp):
-    au_socket(a, cp, sp) {
+au_socket::au_socket(int new_fd, hostname a, au_stream_port cp, au_stream_port sp, state_t s):
+    au_socket(a, cp, sp, s) {
     sockfd = new_fd;
 }
 
@@ -80,8 +83,6 @@ void au_socket::recv(void *buf, size_t size) {
 }
 
 void au_client_socket::connect() {
-    check_socket_set();
-
     struct sockaddr saddr;
     socklen_t saddr_size = sizeof(saddr);
 
@@ -94,7 +95,6 @@ void au_client_socket::connect() {
     tcph.th_sport = local_port;
     tcph.th_dport = remote_port;
     tcph.th_seq = htonl(c_seq);
-    cerr << "c_seq set to " << c_seq << endl;
     tcph.th_off = 0; // sizeof(struct tcphdr) / 4;
     tcph.th_flags = TH_SYN;
     tcph.th_win = htonl(65535);
@@ -118,9 +118,7 @@ void au_client_socket::connect() {
     struct tcphdr* tcph_resp = (struct tcphdr*)(buffer + sizeof(struct ip));
     if(ntohl(tcph_resp->th_ack) != c_seq + 1) {
         cerr << "Error connecting to server: wrong seq" << endl;
-        cerr << "th_ack=" << tcph_resp->th_ack << " c_seq=" << c_seq << endl;
         throw std::runtime_error("Wrong seq on client from server");
-//        return;
     }
 
     // happily acknowledge
@@ -134,12 +132,11 @@ void au_client_socket::connect() {
         throw std::runtime_error("AU Client Socket: failed to send syn_ack");
     }
 
+    state = CONNECTED;
     cerr << "Client: connected" << endl;
 }
 
 stream_socket* au_server_socket::accept_one_client() {
-    check_socket_set();
-
     struct sockaddr saddr;
     socklen_t saddr_size = sizeof(saddr);
 
@@ -201,8 +198,7 @@ stream_socket* au_server_socket::accept_one_client() {
         au_stream_port new_port = rand();
 
         cerr << "Server: accepted" << endl;
-
-        return new au_socket(peer_addr, new_port, client.sin_port);
+        return new au_socket(peer_addr, new_port, client.sin_port, CONNECTED);
     }
 
     cerr << "Server: could not accept" << endl;
