@@ -18,10 +18,11 @@ struct socket_stream {
     void put_data(const char* data, size_t size);
     void put_char(char c);
     char* get_data();
+    size_t get_size();
     void reset();
 private:
     char buffer[BUF_SIZE];
-    int ptr;
+    size_t ptr;
 
     socket_stream() {
         reset();

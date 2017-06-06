@@ -84,6 +84,7 @@ protected:
     void set_fin(struct my_tcphdr*);
 
     void send_packet(struct sockaddr* addr);
+    void recv_packet();
 
 public:
     au_socket(hostname a = DEFAULT_AU_ADDR,

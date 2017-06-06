@@ -55,7 +55,10 @@ void au_socket::close() {
     struct my_tcphdr tcph;
     set_fin(&tcph);
 
-    send_packet(&tcph, &remote_addr);
+    stream.reset();
+    stream.put_hdr(&tcph);
+
+    send_packet(&remote_addr);
 
 //    if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
 //                (struct sockaddr*)&remote_addr, sizeof(struct sockaddr)) < 0) {
@@ -74,19 +77,26 @@ void au_socket::send(const void* buf, size_t size) {
     struct sockaddr saddr;
     socklen_t saddr_size = sizeof(saddr);
 
-    // clear buffer
-    memset(out_buffer, 0, AU_BUF_SIZE);
+//    // clear buffer
+//    memset(out_buffer, 0, AU_BUF_SIZE);
 
-    // write tcphdr
-    struct my_tcphdr* tcph = (struct my_tcphdr*)(out_buffer);
-    set_hdr(tcph, local_port, remote_port);
+//    // write tcphdr
+//    struct my_tcphdr* tcph = (struct my_tcphdr*)(out_buffer);
+//    set_hdr(tcph, local_port, remote_port);
 
-    // write data
-    int nwords = std::min(size, AU_BUF_CAPACITY);
-    char* data = out_buffer + sizeof(struct my_tcphdr);
-    memcpy(data, buf, nwords);
-    out_buffer[AU_BUF_SIZE - 1] = 0;
-    tcph->t.th_sum = checksum((unsigned short*)data, nwords);
+//    // write data
+//    int nwords = std::min(size, AU_BUF_CAPACITY);
+//    char* data = out_buffer + sizeof(struct my_tcphdr);
+//    memcpy(data, buf, nwords);
+//    out_buffer[AU_BUF_SIZE - 1] = 0;
+//    tcph->t.th_sum = checksum((unsigned short*)data, nwords);
+    struct my_tcphdr tcph;
+    set_hdr(&tcph, local_port, remote_port);
+    tcph.t.th_sum = checksum((unsigned short*)buf, std::min(size, AU_BUF_CAPACITY));
+
+    stream.reset();
+    stream.put_hdr(&tcph);
+    stream.put_data((char*)buf, size);
 
     // send
     bool need_send = true;
@@ -95,11 +105,12 @@ void au_socket::send(const void* buf, size_t size) {
         need_send = false;
 
         time_t send_time = time(NULL);
-        if(::sendto(sockfd, out_buffer, sizeof(struct my_tcphdr) + nwords, 0,
-                    (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
-            perror("AU Socket: error while sending");
-            throw std::runtime_error("AU Socket: error while sending");
-        }
+        send_packet(&remote_addr);
+//        if(::sendto(sockfd, out_buffer, sizeof(struct my_tcphdr) + nwords, 0,
+//                    (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
+//            perror("AU Socket: error while sending");
+//            throw std::runtime_error("AU Socket: error while sending");
+//        }
 
         // catch the ack
         while(true) {
@@ -171,11 +182,15 @@ void au_socket::recv(void *buf, size_t size) {
         struct my_tcphdr response;
         set_ack(&response, ntohl(tcph->t.th_seq) + 1);
 
-        if(::sendto(sockfd, &response, sizeof(struct my_tcphdr), 0,
-                    (struct sockaddr*)&remote_addr, sizeof(struct sockaddr)) < 0) {
-            perror("AU Socket: failed to send ack");
-            throw std::runtime_error("AU Socket: failed to send ack");
-        }
+        stream.reset();
+        stream.put_hdr(&response);
+
+        send_packet(&remote_addr);
+//        if(::sendto(sockfd, &response, sizeof(struct my_tcphdr), 0,
+//                    (struct sockaddr*)&remote_addr, sizeof(struct sockaddr)) < 0) {
+//            perror("AU Socket: failed to send ack");
+//            throw std::runtime_error("AU Socket: failed to send ack");
+//        }
         log("[RECV] successfully received: " + string((char*)buf));
     } else {
         log("[RECV] checksum mismatch!");
@@ -193,13 +208,16 @@ void au_client_socket::connect() {
     struct my_tcphdr tcph;
     set_syn(&tcph, c_seq);
 
-    time_t send_time = time(NULL);
+    stream.reset();
+    stream.put_hdr(&tcph);
 
-    if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
-                (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
-        perror("AU Client Socket: error while sending syn");
-        throw std::runtime_error("AU Socket: error while sending");
-    }
+    time_t send_time = time(NULL);
+    send_packet(&remote_addr);
+//    if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
+//                (struct sockaddr *)(&remote_addr), sizeof(remote_addr)) < 0) {
+//        perror("AU Client Socket: error while sending syn");
+//        throw std::runtime_error("AU Socket: error while sending");
+//    }
 
     log("[CONNECTING] sent syn packet");
 
@@ -229,11 +247,15 @@ void au_client_socket::connect() {
     set_ack(&tcph, ntohl(tcph_resp->t.th_seq) + 1);
     tcph.t.th_ack = 0;
 
-    if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
-                (struct sockaddr*)&remote_addr, sizeof(struct sockaddr_in)) < 0) {
-        perror("failed to send ack");
-        throw std::runtime_error("AU Client Socket: failed to send ack");
-    }
+    stream.reset();
+    stream.put_hdr(&tcph);
+
+    send_packet(&remote_addr);
+//    if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
+//                (struct sockaddr*)&remote_addr, sizeof(struct sockaddr_in)) < 0) {
+//        perror("failed to send ack");
+//        throw std::runtime_error("AU Client Socket: failed to send ack");
+//    }
 
     state = CONNECTED;
     remote_port = new_remote_port;
@@ -274,13 +296,16 @@ stream_socket* au_server_socket::accept_one_client() {
     struct my_tcphdr response;
     set_syn_ack(&response, tcph, s_seq, new_port);
 
-    time_t send_time = time(NULL);
+    stream.reset();
+    stream.put_hdr(&response);
 
-    if(::sendto(sockfd, &response, sizeof(struct my_tcphdr), 0,
-                (struct sockaddr*)&client, sizeof(client)) < 0) {
-        perror("failed to send syn_ack");
-        throw std::runtime_error("AU Server Socket: failed to send syn_ack");
-    }
+    time_t send_time = time(NULL);
+    send_packet(&client);
+//    if(::sendto(sockfd, &response, sizeof(struct my_tcphdr), 0,
+//                (struct sockaddr*)&client, sizeof(client)) < 0) {
+//        perror("failed to send syn_ack");
+//        throw std::runtime_error("AU Server Socket: failed to send syn_ack");
+//    }
 
     // catch an ack packet
     do {

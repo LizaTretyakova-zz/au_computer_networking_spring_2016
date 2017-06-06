@@ -148,3 +148,17 @@ void au_server_socket::set_syn_ack(struct my_tcphdr* response,
     response->t.th_sum = 0;
     response->small_things = new_port;
 }
+
+void au_socket::send_packet(struct my_tcphdr* tcph, char* data, size_t size, struct sockaddr* remote_addr) {
+    stream.reset();
+    stream.put_hdr(tcph);
+    if(data != NULL) {
+        stream.put_data(data, size);
+        stream.put_char(0);
+    }
+    if(::sendto(sockfd, stream.get_data(), stream.get_size(), 0,
+                remote_addr, sizeof(struct sockaddr)) < 0) {
+        perror("AU Socket: error sending FIN");
+        throw std::runtime_error("AU Socket: error sending FIN");
+    }
+}

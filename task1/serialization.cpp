@@ -89,6 +89,10 @@ void socket_stream::get_data() {
     return buffer;
 }
 
+size_t get_size() {
+    return ptr;
+}
+
 void socket_stream::reset() {
     ptr = 0;
     memset(buffer, 0, BUF_SIZE);
