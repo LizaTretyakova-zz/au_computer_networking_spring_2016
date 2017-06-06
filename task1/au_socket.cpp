@@ -72,7 +72,8 @@ void au_socket::send(const void* buf, size_t size) {
     size_t nwords = std::min(size, AU_BUF_CAPACITY);
     log("[SEND] nwords=" + std::to_string(nwords));
     tcph.t.th_sum = checksum((unsigned char*)buf, nwords);
-    log("[SEND] th_sum=" + std::to_string(tcph.t.th_sum));
+    unsigned short ctrl_sum = checksum((unsigned char*)(stream.get_data() + sizeof(struct my_tcphdr)), nwords);
+    log("[SEND] th_sum=" + std::to_string(tcph.t.th_sum) + " sum_in_buffer=" + std::to_string(ctrl_sum));
 
     // send
     bool need_send = true;
