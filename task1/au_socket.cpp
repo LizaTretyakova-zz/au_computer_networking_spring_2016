@@ -53,11 +53,7 @@ void au_socket::close() {
     check_socket_set();
 
     struct my_tcphdr tcph;
-    memset(&tcph, 0, sizeof(struct my_tcphdr));
-    tcph.t.th_sport = local_port;
-    tcph.t.th_dport = remote_port;
-    tcph.t.th_sum = 0;
-    tcph.t.th_flags = TH_FIN;
+    set_fin(&tcph);
 
     if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
                 (struct sockaddr*)&remote_addr, sizeof(struct sockaddr)) < 0) {
@@ -81,8 +77,7 @@ void au_socket::send(const void* buf, size_t size) {
 
     // write tcphdr
     struct my_tcphdr* tcph = (struct my_tcphdr*)(out_buffer);
-    tcph->t.th_sport = local_port;
-    tcph->t.th_dport = remote_port;
+    set_hdr(tcph, local_port, remote_port);
 
     // write data
     int nwords = std::min(size, AU_BUF_CAPACITY);
@@ -106,6 +101,8 @@ void au_socket::send(const void* buf, size_t size) {
 
         // catch the ack
         while(true) {
+            log("[SEND] catching ack");
+
             if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size) < 0) {
                 perror("AU Socket: error while receiving");
                 throw std::runtime_error("AU Socket: error while receiving");
@@ -125,12 +122,15 @@ void au_socket::send(const void* buf, size_t size) {
                 }
             }
 
+            log("[SEND] missed");
+
             double diff = difftime(time(NULL), send_time);
             if(diff > RTO) {
                 log("[SEND] reached ack timeout " + std::to_string(diff) + ". Retry.");
                 need_send = true;
                 break;
             }
+            log("[SEND] diff="  + std::to_string(diff));
         }
     }
     log("[SEND] successfully sent: " + string((char*)buf));
@@ -167,11 +167,8 @@ void au_socket::recv(void *buf, size_t size) {
 
         // ... and send ack
         struct my_tcphdr response;
-        memset(&response, 0, sizeof(struct my_tcphdr));
-        response.t.th_sport = local_port;
-        response.t.th_dport = remote_port;
-        response.t.th_seq = tcph->t.th_seq + 1;
-        response.t.th_flags = TH_ACK;
+        set_ack(&response, ntohl(tcph->t.th_seq) + 1);
+
         if(::sendto(sockfd, &response, sizeof(struct my_tcphdr), 0,
                     (struct sockaddr*)&remote_addr, sizeof(struct sockaddr)) < 0) {
             perror("AU Socket: failed to send ack");
@@ -187,19 +184,12 @@ void au_client_socket::connect() {
     struct sockaddr saddr;
     socklen_t saddr_size = sizeof(saddr);
 
-    log("Connecting");
+    log("[CONNECTING] connecting");
 
     // send syn
     unsigned int c_seq = rand();
     struct my_tcphdr tcph;
-    memset(&tcph, 0, sizeof(struct my_tcphdr));
-    tcph.t.th_sport = local_port;
-    tcph.t.th_dport = remote_port;
-    tcph.t.th_seq = htonl(c_seq);
-    tcph.t.th_off = 0; // sizeof(struct my_tcphdr) / 4;
-    tcph.t.th_flags = TH_SYN;
-    tcph.t.th_win = htonl(65535);
-    tcph.t.th_sum = 0;
+    set_syn(&tcph, c_seq);
 
     time_t send_time = time(NULL);
 
@@ -209,13 +199,18 @@ void au_client_socket::connect() {
         throw std::runtime_error("AU Socket: error while sending");
     }
 
+    log("[CONNECTING] sent syn packet");
+
     // catch syn_ack
     do {
+        log("[CONNECTING] catching ack");
         if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size) < 0) {
             perror("AU Client Socket: error while receiving");
             throw std::runtime_error("AU Client Socket: error while receiving");
         }
     } while(!is_ours() || !from(&remote_addr) || !is_syn_ack());
+
+    log("[CONNECTING] caught ack");
 
     time_t resp_time = time(NULL);
     set_rtt(difftime(resp_time, send_time));
@@ -229,9 +224,8 @@ void au_client_socket::connect() {
     au_stream_port new_remote_port = tcph_resp->small_things;
 
     // happily acknowledge
-    tcph.t.th_seq = htonl(ntohl(tcph_resp->t.th_seq) + 1);
+    set_ack(&tcph, ntohl(tcph_resp->t.th_seq) + 1);
     tcph.t.th_ack = 0;
-    tcph.t.th_flags = TH_ACK;
 
     if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
                 (struct sockaddr*)&remote_addr, sizeof(struct sockaddr_in)) < 0) {
@@ -248,15 +242,18 @@ stream_socket* au_server_socket::accept_one_client() {
     struct sockaddr saddr;
     socklen_t saddr_size = sizeof(saddr);
 
-    log("Accepting");
+    log("[ACCEPTING] accepting");
 
     // catch a syn packet
     do {
+        log("[ACCEPTING] catching syn packet");
         if(recvfrom(sockfd, buffer, AU_BUF_SIZE, 0, &saddr, &saddr_size) < 0) {
             perror("AU Server Socket: error while receiving syn");
             throw std::runtime_error("AU Server Socket: error while receiving syn");
         }
     } while(!to_this_server() || !is_syn());
+
+    log("[ACCEPTING] caught syn packet");
 
     // extract headers
     struct iphdr* iph = (struct iphdr*)buffer;
@@ -273,16 +270,7 @@ stream_socket* au_server_socket::accept_one_client() {
     unsigned int s_seq = rand();
     au_stream_port new_port = rand();
     struct my_tcphdr response;
-    memcpy(&response, tcph, sizeof(struct my_tcphdr));
-    response.t.th_sport = tcph->t.th_dport;
-    response.t.th_dport = tcph->t.th_sport;
-    response.t.th_seq = htonl(s_seq);
-    response.t.th_ack = htonl(ntohl(tcph->t.th_seq) + 1);
-    response.t.th_off = 0; // sizeof(struct my_tcphdr) / 4;
-    response.t.th_flags = TH_SYN | TH_ACK;
-    response.t.th_win = htonl(65535);
-    response.t.th_sum = 0;
-    response.small_things = new_port;
+    set_syn_ack(&response, tcph, s_seq, new_port);
 
     time_t send_time = time(NULL);
 

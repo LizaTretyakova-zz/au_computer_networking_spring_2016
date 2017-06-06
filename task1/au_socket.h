@@ -69,12 +69,16 @@ protected:
     void check_socket_set();
     unsigned short checksum(unsigned short *buf, int nwords);
 
+    bool from(struct sockaddr_in* peer);
+    bool is_ours();
     bool is_syn();
     bool is_ack();
     bool is_syn_ack();
     bool is_fin();
-    bool from(struct sockaddr_in* peer);
-    bool is_ours();
+    void set_hdr(struct my_tcphdr*, au_stream_port, au_stream_port);
+    void set_syn(struct my_tcphdr*, uint32_t);
+    void set_ack(struct my_tcphdr*, uint32_t);
+    void set_fin(struct my_tcphdr*);
 
 public:
     au_socket(hostname a = DEFAULT_AU_ADDR,
@@ -87,7 +91,6 @@ public:
               state_t state = DISCONNECTED);
 
     ~au_socket() {
-//        ::close(sockfd);
         if(sockfd != -1 && state == CONNECTED) {
             close();
         }
@@ -118,6 +121,10 @@ public:
 struct au_server_socket: au_socket, stream_server_socket {
 protected:
     bool to_this_server();
+    void set_syn_ack(struct my_tcphdr*,
+                     struct my_tcphdr*,
+                     uint32_t,
+                     au_stream_port);
 public:
     au_server_socket(hostname a = DEFAULT_AU_ADDR,
                      au_stream_port port_number = DEFAULT_AU_SERVER_PORT):
