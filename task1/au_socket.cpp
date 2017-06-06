@@ -55,11 +55,13 @@ void au_socket::close() {
     struct my_tcphdr tcph;
     set_fin(&tcph);
 
-    if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
-                (struct sockaddr*)&remote_addr, sizeof(struct sockaddr)) < 0) {
-        perror("AU Socket: error sending FIN");
-        throw std::runtime_error("AU Socket: error sending FIN");
-    }
+    send_packet(&tcph, &remote_addr);
+
+//    if(::sendto(sockfd, &tcph, sizeof(struct my_tcphdr), 0,
+//                (struct sockaddr*)&remote_addr, sizeof(struct sockaddr)) < 0) {
+//        perror("AU Socket: error sending FIN");
+//        throw std::runtime_error("AU Socket: error sending FIN");
+//    }
     ::close(sockfd);
 
     log("[CLOSE] closed");

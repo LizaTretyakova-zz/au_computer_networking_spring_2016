@@ -47,3 +47,49 @@ void recv_response(tcp_socket* socket, response* res) {
     res->data.resize(len);
     socket->recv(&(res->data)[0], len);
 }
+
+void socket_stream::put_hdr(struct my_tcphdr* hdr) {
+    if(ptr + sizeof(struct my_tcphdr) >= BUF_SIZE) {
+        throw std::runtime_error("[SOCKET_STREAM] put_hdr: not enough space");
+    }
+
+    memcpy(buffer + ptr, hdr, sizeof(struct my_tcphdr));
+    struct my_tcphdr* tcph = (struct my_tcphdr*)(buffer + ptr);
+    ptr += sizeof(struct my_tcphdr);
+
+    tcph->t.th_sport = htons(tcph->t.th_sport);
+    tcph->t.th_dport = htons(tcph->t.th_dport);
+    tcph->t.th_seq = htonl(tcph->t.th_seq);
+    tcph->t.th_ack = htonl(tcph->t.th_ack);
+    // no conversion for th_x2 and th_off,
+    // since they together form a single uint8_t;
+    // same for th_flags
+    tcph->t.th_win = htons(tcph->t.th_win);
+    tcph->t.th_sum = htons(tcph->t.th_sum);
+    tcph->t.th_urp = htons(tcph->t.th_urp);
+    tcph->small_things = htons(tcph->small_things);
+}
+
+void socket_stream::put_data(const char* data, size_t size) {
+    if(ptr + size >= BUF_SIZE) {
+        throw std::runtime_error("[SOCKET_STREAM] put_data: not enough space");
+    }
+    memcpy(buffer, data, size);
+}
+
+void socket_stream::put_char(char c) {
+    if(ptr + sizeof(char) >= BUF_SIZE) {
+        throw std::runtime_error("[SOCKET_STREAM] put_char: not enough space");
+    }
+    buffer[ptr] = c;
+    ptr += sizeof(char);
+}
+
+void socket_stream::get_data() {
+    return buffer;
+}
+
+void socket_stream::reset() {
+    ptr = 0;
+    memset(buffer, 0, BUF_SIZE);
+}

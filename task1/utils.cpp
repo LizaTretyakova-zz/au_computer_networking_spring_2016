@@ -114,18 +114,16 @@ void au_socket::set_hdr(struct my_tcphdr* tcph,
 
 void au_socket::set_syn(struct my_tcphdr* tcph, uint32_t seq) {
     set_hdr(tcph, local_port, remote_port);
-    tcph->t.th_seq = htonl(seq);
-//    cerr << "set_syn: seq=" << seq
-//         << " th_seq=" << tcph->t.th_seq << endl;
+    tcph->t.th_seq = seq;
     tcph->t.th_off = 0;
     tcph->t.th_flags = TH_SYN;
-    tcph->t.th_win = htonl(65535);
+    tcph->t.th_win = MAX_WINDOW_SIZE;
     tcph->t.th_sum = 0;
 }
 
 void au_socket::set_ack(struct my_tcphdr* tcph, uint32_t seq) {
     set_hdr(tcph, local_port, remote_port);
-    tcph->t.th_seq = htonl(seq);
+    tcph->t.th_seq = seq;
     tcph->t.th_flags = TH_ACK;
 }
 
@@ -142,12 +140,11 @@ void au_server_socket::set_syn_ack(struct my_tcphdr* response,
     memcpy(response, tcph, sizeof(struct my_tcphdr));
     response->t.th_sport = tcph->t.th_dport;
     response->t.th_dport = tcph->t.th_sport;
-    response->t.th_seq = htonl(seq);
-    response->t.th_ack = htonl(ntohl(tcph->t.th_seq) + 1);
-//    cerr << "set_syn_ack: seq=" <<
+    response->t.th_seq = seq;
+    response->t.th_ack = ntohl(tcph->t.th_seq) + 1;
     response->t.th_off = 0;
     response->t.th_flags = TH_SYN | TH_ACK;
-    response->t.th_win = htonl(65535);
+    response->t.th_win = MAX_WINDOW_SIZE;
     response->t.th_sum = 0;
     response->small_things = new_port;
 }

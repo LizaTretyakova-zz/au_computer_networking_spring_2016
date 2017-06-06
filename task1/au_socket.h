@@ -1,5 +1,6 @@
 #pragma once
 
+#include "serialization.h"
 #include "stream_socket.h"
 
 #include <cstdint>
@@ -37,6 +38,7 @@ const unsigned short IPPROTO_AU = 18;
 const size_t AU_BUF_SIZE = IP_MAXPACKET;
 const size_t AU_BUF_CAPACITY = AU_BUF_SIZE - sizeof(struct iphdr) - sizeof(struct my_tcphdr) - 1;
 const int32_t AU_INIT_SEQ = 0x131123;
+const uint16_t MAX_WINDOW_SIZE = 65535;
 
 const double SMOOTHING_FACTOR = 0.85;
 const double DELAY_VARIANCE = 1.75;
@@ -60,6 +62,7 @@ protected:
     state_t state;
     char buffer[AU_BUF_SIZE];
     char out_buffer[AU_BUF_SIZE];
+    socket_stream stream;
     // network
     double RTT;
     double SRTT;
@@ -79,6 +82,8 @@ protected:
     void set_syn(struct my_tcphdr*, uint32_t);
     void set_ack(struct my_tcphdr*, uint32_t);
     void set_fin(struct my_tcphdr*);
+
+    void send_packet(struct sockaddr* addr);
 
 public:
     au_socket(hostname a = DEFAULT_AU_ADDR,
