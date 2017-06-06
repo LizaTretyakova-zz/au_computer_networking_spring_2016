@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TCP_SOCKET
+#define TCP_SOCKET
 
 #include "stream_socket.h"
 
@@ -62,3 +63,5 @@ public:
 
     virtual stream_socket* accept_one_client();
 };
+
+#endif

@@ -42,9 +42,7 @@ static void* test_stream_sockets_datapipe_thread_func(void*)
     client->connect();
     std::this_thread::sleep_for (std::chrono::seconds(10));
     while (i < max_i) {
-        cerr << "client: " << client.get() << "\n";
         client->recv(buf, sizeof(buf));
-        cerr << "[test_stream_sockets_datapipe_thread_func]: client received some data\n";
         for (size_t buf_ix = 0; buf_ix < BUF_ITEMS; ++buf_ix, ++i) {
             if (buf[buf_ix] != i)
                 cout << i << " " << buf[buf_ix] << std::endl;

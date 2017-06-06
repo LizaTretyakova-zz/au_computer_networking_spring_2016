@@ -1,7 +1,9 @@
-#pragma once
+#ifndef PROTOCOL
+#define PROTOCOL
 
 #include <cstdint>
 #include <cstdio>
+#include <netinet/tcp.h>      //Provides declarations for tcp header
 #include <string>
 #include <type_traits>
 
@@ -31,3 +33,11 @@ struct response {
     response(const bool ok = false, const string& d = ""):
         status_ok(ok), data(d) {}
 };
+
+struct my_tcphdr {
+    // that moment when you want to use Go's embedding...
+    struct tcphdr t;
+    unsigned short small_things;
+};
+
+#endif

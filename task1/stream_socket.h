@@ -1,4 +1,5 @@
-#pragma once
+#ifndef STREAM_SOCKET
+#define STREAM_SOCKET
 
 #include <cstddef>
 
@@ -51,3 +52,5 @@ struct stream_server_socket
 };
 
 typedef const char* hostname;
+
+#endif

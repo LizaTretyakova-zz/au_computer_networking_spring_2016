@@ -1,5 +1,7 @@
-#pragma once
+#ifndef AU_SOCKET
+#define AU_SOCKET
 
+#include "protocol.h"
 #include "serialization.h"
 #include "stream_socket.h"
 
@@ -9,7 +11,6 @@
 #include <iostream>
 #include <netdb.h>
 #include <netinet/ip.h>       // struct ip and IP_MAXPACKET (which is 65535)
-#include <netinet/tcp.h>      //Provides declarations for tcp header
 #include <stdexcept>
 #include <stdio.h>
 #include <string>
@@ -22,12 +23,6 @@ using std::cerr;
 using std::string;
 
 typedef unsigned short au_stream_port;
-
-struct my_tcphdr {
-    // that moment when you want to use Go's embedding...
-    struct tcphdr t;
-    unsigned short small_things;
-};
 
 const hostname DEFAULT_AU_ADDR = "127.0.0.1";
 const hostname AU_LOCAL_ADDR = "127.0.0.1";
@@ -62,7 +57,7 @@ protected:
     state_t state;
     char buffer[AU_BUF_SIZE];
     char out_buffer[AU_BUF_SIZE];
-    socket_stream stream;
+    struct socket_stream stream;
     // network
     double RTT;
     double SRTT;
@@ -70,21 +65,24 @@ protected:
 
     void get_sockaddr(hostname host_addr, au_stream_port port, struct sockaddr_in* dst);
     void check_socket_set();
-    unsigned short checksum(unsigned short *buf, int nwords);
+    unsigned short checksum(unsigned char *buf, int nwords);
 
-    bool from(struct sockaddr_in* peer);
-    bool is_ours();
-    bool is_syn();
-    bool is_ack();
-    bool is_syn_ack();
-    bool is_fin();
+    bool from(struct sockaddr_in* peer, struct iphdr* iph);
+    bool is_ours(struct iphdr* iph, struct my_tcphdr *tcph);
+    bool is_syn(struct my_tcphdr *tcph);
+    bool is_ack(struct my_tcphdr *tcph);
+    bool is_syn_ack(struct my_tcphdr *tcph);
+    bool is_fin(struct my_tcphdr *tcph);
     void set_hdr(struct my_tcphdr*, au_stream_port, au_stream_port);
     void set_syn(struct my_tcphdr*, uint32_t);
     void set_ack(struct my_tcphdr*, uint32_t);
     void set_fin(struct my_tcphdr*);
 
-    void send_packet(struct sockaddr* addr);
-    void recv_packet();
+    void send_packet(struct my_tcphdr* tcph,
+                     const char* data,
+                     size_t size,
+                     struct sockaddr* addr);
+    void recv_packet(struct iphdr* iph, struct my_tcphdr* tcph, char* data, size_t size);
 
 public:
     au_socket(hostname a = DEFAULT_AU_ADDR,
@@ -126,7 +124,7 @@ public:
 
 struct au_server_socket: au_socket, stream_server_socket {
 protected:
-    bool to_this_server();
+    bool to_this_server(struct iphdr* iph, struct my_tcphdr* tcph);
     void set_syn_ack(struct my_tcphdr*,
                      struct my_tcphdr*,
                      uint32_t,
@@ -142,3 +140,5 @@ public:
 };
 
 void fill_tcp_header(struct my_tcphdr *tcph, au_stream_port src_port, au_stream_port dst_port);
+
+#endif

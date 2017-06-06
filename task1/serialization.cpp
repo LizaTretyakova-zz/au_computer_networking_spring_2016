@@ -49,13 +49,13 @@ void recv_response(tcp_socket* socket, response* res) {
 }
 
 void socket_stream::put_hdr(struct my_tcphdr* hdr) {
-    if(ptr + sizeof(struct my_tcphdr) >= BUF_SIZE) {
+    if(end + sizeof(struct my_tcphdr) >= BUF_SIZE) {
         throw std::runtime_error("[SOCKET_STREAM] put_hdr: not enough space");
     }
 
-    memcpy(buffer + ptr, hdr, sizeof(struct my_tcphdr));
-    struct my_tcphdr* tcph = (struct my_tcphdr*)(buffer + ptr);
-    ptr += sizeof(struct my_tcphdr);
+    memcpy(buffer + end, hdr, sizeof(struct my_tcphdr));
+    struct my_tcphdr* tcph = (struct my_tcphdr*)(buffer + end);
+    end += sizeof(struct my_tcphdr);
 
     tcph->t.th_sport = htons(tcph->t.th_sport);
     tcph->t.th_dport = htons(tcph->t.th_dport);
@@ -71,29 +71,74 @@ void socket_stream::put_hdr(struct my_tcphdr* hdr) {
 }
 
 void socket_stream::put_data(const char* data, size_t size) {
-    if(ptr + size >= BUF_SIZE) {
+    if(end + size >= BUF_SIZE) {
         throw std::runtime_error("[SOCKET_STREAM] put_data: not enough space");
     }
-    memcpy(buffer, data, size);
+    memcpy(buffer + end, data, size);
 }
 
 void socket_stream::put_char(char c) {
-    if(ptr + sizeof(char) >= BUF_SIZE) {
+    if(end + sizeof(char) >= BUF_SIZE) {
         throw std::runtime_error("[SOCKET_STREAM] put_char: not enough space");
     }
-    buffer[ptr] = c;
-    ptr += sizeof(char);
+    buffer[end] = c;
+    end += sizeof(char);
 }
 
-void socket_stream::get_data() {
-    return buffer;
+void socket_stream::read_iphdr(struct iphdr* iph) {
+    size_t iplen = sizeof(struct iphdr);
+    memcpy(iph, buffer + begin, iplen);
+
+    begin += iplen;
+    last_read_size = iplen;
 }
 
-size_t get_size() {
-    return ptr;
+void socket_stream::read_tcphdr(struct my_tcphdr* tcph) {
+    size_t tcplen = sizeof(struct my_tcphdr);
+    memcpy(tcph, buffer + begin, tcplen);
+
+    tcph->t.th_sport = ntohs(tcph->t.th_sport);
+    tcph->t.th_dport = ntohs(tcph->t.th_dport);
+    tcph->t.th_seq = ntohl(tcph->t.th_seq);
+    tcph->t.th_ack = ntohl(tcph->t.th_ack);
+    // no conversion for th_x2 and th_off,
+    // since they together form a single uint8_t;
+    // same for th_flags
+    tcph->t.th_win = ntohs(tcph->t.th_win);
+    tcph->t.th_sum = ntohs(tcph->t.th_sum);
+    tcph->t.th_urp = ntohs(tcph->t.th_urp);
+    tcph->small_things = ntohs(tcph->small_things);
+
+    begin += tcplen;
+    last_read_size = tcplen;
+}
+
+void socket_stream::read_data(char* buf, size_t size) {
+    int to_read = std::min(end - begin, size);
+    memcpy(buf, buffer + begin, to_read);
+    begin += to_read;
+    last_read_size = to_read;
+}
+
+const char* socket_stream::get_data() {
+    return buffer + begin;
+}
+
+char* socket_stream::get_modifiable_data() {
+    return buffer + begin;
+}
+
+size_t socket_stream::get_size() {
+    return end - begin;
+}
+
+size_t socket_stream::get_last_read_words() {
+    return last_read_size * sizeof(char) / sizeof(char);
 }
 
 void socket_stream::reset() {
-    ptr = 0;
+    begin = 0;
+    end = 0;
+    last_read_size = 0;
     memset(buffer, 0, BUF_SIZE);
 }
